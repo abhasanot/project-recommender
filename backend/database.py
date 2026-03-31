@@ -29,9 +29,6 @@ class Database:
                 password_hash TEXT NOT NULL,
                 name TEXT NOT NULL,
                 user_type TEXT DEFAULT 'student',
-                student_id TEXT,
-                academic_year TEXT,
-                major TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -41,7 +38,6 @@ class Database:
             CREATE TABLE IF NOT EXISTS profiles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
-                required_courses TEXT,
                 elective_courses TEXT,
                 courses TEXT,
                 interests TEXT,
@@ -102,10 +98,9 @@ class Database:
         cursor = conn.cursor()
         
         cursor.execute('''
-            INSERT INTO users (email, password_hash, name, user_type, student_id, academic_year, major)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (user.email, user.password_hash, user.name, user.user_type, 
-              user.student_id, user.academic_year, user.major))
+            INSERT INTO users (email, password_hash, name, user_type)
+            VALUES (?, ?, ?, ?)
+        ''', (user.email, user.password_hash, user.name, user.user_type))
         
         user_id = cursor.lastrowid
         conn.commit()
@@ -141,11 +136,10 @@ class Database:
         
         cursor.execute('''
             INSERT OR REPLACE INTO profiles 
-            (user_id, required_courses, elective_courses, courses, interests, applications, rdia, weighting_mode, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            (user_id, elective_courses, courses, interests, applications, rdia, weighting_mode, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ''', (
             profile.user_id,
-            json.dumps(profile.required_courses),
             json.dumps(profile.elective_courses),
             json.dumps(profile.courses),
             json.dumps(profile.interests),
@@ -218,7 +212,46 @@ class Database:
             return group_dict
         
         return None
+    def get_user_group(self, user_id: int):
+        """Get the group that a user belongs to"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
     
+     # Searching for a group containing user_id in the members list
+        cursor.execute('SELECT * FROM groups')
+        all_groups = cursor.fetchall()
+        conn.close()
+    
+        for group in all_groups:
+            group_dict = dict(group)
+            members = self._safe_json_loads(group_dict['members'])
+            if user_id in members:
+                group_dict['members'] = members
+                return group_dict
+    
+        return None
+
+    def update_group_members(self, group_id: str, members: list):
+        """Update the members list of a group"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('UPDATE groups SET members = ? WHERE group_id = ?', 
+                    (json.dumps(members), group_id))
+        
+        conn.commit()
+        conn.close()
+
+    def delete_group(self, group_id: str):
+        """Delete a group"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM groups WHERE group_id = ?', (group_id,))
+        
+        conn.commit()
+        conn.close()
+
     def finalize_group(self, group_id: str):
         conn = self.get_connection()
         cursor = conn.cursor()

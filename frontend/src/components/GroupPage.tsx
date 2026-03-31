@@ -58,7 +58,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
     setLoading(true);
     try {
       const response = await api.get('/group');
-      console.log('Group response:', response.data);
+      console.log('Group response:', response.data);  
       
       if (response.data.has_group) {
         setHasGroup(true);
@@ -71,7 +71,10 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
         
         // Check if current user is leader
         const leaderMember = response.data.group.members.find((m: any) => m.role === 'Leader');
-        setIsLeader(leaderMember?.id === currentUserId);
+        console.log('Leader member:', leaderMember);  // ✅ أضف هذا
+        console.log('Current user ID:', currentUserId);
+        setIsLeader(leaderMember?.id.toString() === currentUserId);
+        console.log('Is leader?', leaderMember?.id.toString() === currentUserId);  // ✅ أضف هذا
       } else {
         setHasGroup(false);
       }
@@ -92,13 +95,15 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
     setLoading(true);
     try {
       const response = await api.post('/group/create', { group_name: groupName });
+      console.log('Create group response:', response.data);  // ✅ تأكد من الرد
       const newGroupId = response.data.group.id;
       setGroupId(newGroupId);
       setHasGroup(true);
       setIsFinalized(false);
-      setIsLeader(true);
+      setMembers(response.data.group.members);
+      const leaderMember = response.data.group.members.find((m: any) => m.role === 'Leader');
+      setIsLeader(leaderMember?.id.toString() === currentUserId);
       onGroupFinalized(false);
-      setMembers(response.data.group.members || []);
       toast.success('Group created successfully!', {
         description: `Group ID: ${newGroupId}`,
       });

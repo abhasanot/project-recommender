@@ -6,9 +6,6 @@ interface User {
   email: string;
   name: string;
   user_type: 'student' | 'faculty';
-  student_id?: string;
-  academic_year?: string;
-  major?: string;
 }
 
 interface AuthContextType {

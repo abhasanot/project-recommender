@@ -70,10 +70,7 @@ def signup():
         email=data['email'],
         password_hash=hashed_password,
         name=data['name'],
-        user_type=data['user_type'],
-        student_id=data.get('student_id', ''),
-        academic_year=data.get('academic_year', ''),
-        major=data.get('major', 'Computer Science')
+        user_type=data['user_type']
     )
     
     user_id = db.create_user(user)
@@ -139,10 +136,7 @@ def get_current_user():
         'id': user['id'],
         'email': user['email'],
         'name': user['name'],
-        'user_type': user['user_type'],
-        'student_id': user.get('student_id', ''),
-        'academic_year': user.get('academic_year', ''),
-        'major': user.get('major', '')
+        'user_type': user['user_type']
     }), 200
 
 # ==================== STUDENT PROFILE ROUTES ====================
@@ -153,16 +147,15 @@ def save_profile():
     """Save student's academic profile"""
     data = request.json
     
-    if 'courses' not in data or 'interests' not in data or 'applications' not in data or 'rdia' not in data:
+    if 'elective_courses' not in data or 'interests' not in data or 'applications' not in data or 'rdia' not in data:
         return jsonify({'error': 'Missing required data sections'}), 400
     
     for course in data.get('courses', []):
-        if 'course_code' not in course or 'grade' not in course:
-            return jsonify({'error': 'Each course must have course_code and grade'}), 400
+        if 'name' not in course or 'grade' not in course:
+            return jsonify({'error': 'Each course must have name and grade'}), 400
     
     profile = StudentProfile(
         user_id=session['user_id'],
-        required_courses=data.get('required_courses', []),
         elective_courses=data.get('elective_courses', []),
         courses=data.get('courses', []),
         interests=data.get('interests', []),
@@ -183,7 +176,6 @@ def get_profile():
     
     if not profile:
         return jsonify({
-            'required_courses': [],
             'elective_courses': [],
             'courses': [],
             'interests': [],
@@ -249,13 +241,20 @@ def create_group():
     )
     
     db.create_group(group)
+
+    current_user = db.get_user_by_id(session['user_id'])
     
     return jsonify({
         'message': 'Group created successfully',
         'group': {
             'id': group_id,
             'name': data['group_name'],
-            'members': [session['user_id']],
+            'members': [{
+                'id': current_user['id'],
+                'name': current_user['name'],
+                'email': current_user['email'],
+                'role': 'Leader'
+            }],
             'is_finalized': False
         }
     }), 201

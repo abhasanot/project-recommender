@@ -6,23 +6,18 @@ Data models for the application
 from typing import List, Dict, Any, Optional
 
 class User:
-    def __init__(self, email: str, password_hash: str, name: str, user_type: str = 'student',
-                 student_id: str = '', academic_year: str = '', major: str = 'Computer Science'):
+    def __init__(self, email: str, password_hash: str, name: str, user_type: str = 'student'):
         self.email = email
         self.password_hash = password_hash
         self.name = name
         self.user_type = user_type
-        self.student_id = student_id
-        self.academic_year = academic_year
-        self.major = major
 
 class StudentProfile:
-    def __init__(self, user_id: int, required_courses: List[Dict] = None, 
+    def __init__(self, user_id: int, 
                  elective_courses: List[Dict] = None, courses: List[Dict] = None,
                  interests: List[str] = None, applications: List[str] = None, 
                  rdia: str = '', weighting_mode: str = 'balanced'):
         self.user_id = user_id
-        self.required_courses = required_courses or []
         self.elective_courses = elective_courses or []
         self.courses = courses or []
         self.interests = interests or []
