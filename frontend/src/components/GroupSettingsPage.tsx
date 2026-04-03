@@ -1,103 +1,66 @@
+// frontend/src/components/GroupSettingsPage.tsx
+/**
+ * Post-finalization weight adjustment page.
+ * The leader can change the weighting mode here to regenerate recommendations.
+ * Pre-finalization weight selection lives in GroupPage.tsx.
+ */
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+} from './ui/card';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Label }  from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Slider } from './ui/slider';
-import { Save, Scale, TrendingUp, Users, AlertCircle } from 'lucide-react';
+import { Save, Scale, TrendingUp, Users, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../services/api';
 
 interface GroupSettingsPageProps {
   groupFinalized: boolean;
-  isLeader: boolean;
+  isLeader:       boolean;
   onWeightsUpdated: () => void;
 }
 
-export default function GroupSettingsPage({ groupFinalized, isLeader, onWeightsUpdated }: GroupSettingsPageProps) {
-  const [weightingMode, setWeightingMode] = useState<string>('balanced');
-  const [competencyWeight, setCompetencyWeight] = useState<number>(0.5);
-  const [interestsWeight, setInterestsWeight] = useState<number>(0.5);
+export default function GroupSettingsPage({
+  groupFinalized, isLeader, onWeightsUpdated,
+}: GroupSettingsPageProps) {
+  const [mode,    setMode]    = useState('balanced');
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
     if (groupFinalized && isLeader) {
-      fetchWeights();
+      setLoading(true);
+      api.get('/group/weights')
+        .then(r => setMode(r.data.weighting_mode ?? 'balanced'))
+        .catch(() => {})
+        .finally(() => setLoading(false));
     }
   }, [groupFinalized, isLeader]);
-
-  const fetchWeights = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/group/weights');
-      setWeightingMode(response.data.weighting_mode);
-      setCompetencyWeight(response.data.competency_weight);
-      setInterestsWeight(response.data.interests_weight);
-    } catch (err: any) {
-      console.error('Error fetching weights:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleModeChange = (mode: string) => {
-    setWeightingMode(mode);
-    if (mode === 'courses_heavy') {
-      setCompetencyWeight(0.75);
-      setInterestsWeight(0.25);
-    } else if (mode === 'interests_heavy') {
-      setCompetencyWeight(0.25);
-      setInterestsWeight(0.75);
-    } else {
-      setCompetencyWeight(0.5);
-      setInterestsWeight(0.5);
-    }
-  };
-
-  const handleCompetencyChange = (value: number[]) => {
-    const newCompWeight = value[0];
-    setCompetencyWeight(newCompWeight);
-    setInterestsWeight(1 - newCompWeight);
-    
-    if (newCompWeight > 0.6) {
-      setWeightingMode('courses_heavy');
-    } else if (newCompWeight < 0.4) {
-      setWeightingMode('interests_heavy');
-    } else {
-      setWeightingMode('balanced');
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put('/group/weights', {
-        weighting_mode: weightingMode,
-        competency_weight: competencyWeight,
-        interests_weight: interestsWeight
-      });
-      toast.success('Settings saved! Recommendations have been updated.');
+      await api.put('/group/weights', { weighting_mode: mode });
+      toast.success('Weights updated — recommendations are being regenerated');
       onWeightsUpdated();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
+      toast.error(err.response?.data?.error ?? 'Failed to save settings');
+    } finally { setSaving(false); }
   };
 
   if (!groupFinalized) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
-        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50">
-          <CardContent className="py-12">
-            <div className="text-center">
-              <AlertCircle className="w-16 h-16 text-amber-600 mx-auto mb-4" />
-              <h3 className="text-xl text-gray-900 mb-2">Group Not Finalized</h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Group settings will be available after your group is finalized.
-              </p>
-            </div>
+      <div className="p-8 max-w-3xl mx-auto">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="w-14 h-14 text-amber-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Group Not Finalized</h3>
+            <p className="text-gray-500 text-sm max-w-sm mx-auto">
+              Weight settings can be adjusted here after your group is finalized.
+              To set weights before finalization, go to the&nbsp;
+              <strong>My Group</strong> page.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -106,17 +69,15 @@ export default function GroupSettingsPage({ groupFinalized, isLeader, onWeightsU
 
   if (!isLeader) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
-        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardContent className="py-12">
-            <div className="text-center">
-              <Users className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl text-gray-900 mb-2">Group Settings</h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Only the group leader can adjust recommendation weights.
-                Please contact your group leader to modify these settings.
-              </p>
-            </div>
+      <div className="p-8 max-w-3xl mx-auto">
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="py-12 text-center">
+            <Users className="w-14 h-14 text-blue-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Leader Only</h3>
+            <p className="text-gray-500 text-sm max-w-sm mx-auto">
+              Only the group leader can adjust the recommendation weighting.
+              Ask your group leader to change these settings if needed.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -125,35 +86,50 @@ export default function GroupSettingsPage({ groupFinalized, isLeader, onWeightsU
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading settings...</p>
+      <div className="p-8 flex justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </div>
     );
   }
+
+  const options = [
+    {
+      value: 'balanced',
+      label: 'Balanced (50% / 50%)',
+      desc:  'Equal weight for academic background and personal interests',
+    },
+    {
+      value: 'courses_heavy',
+      label: 'Competency-Focused (75% / 25%)',
+      desc:  'Prioritises projects that match the group\'s academic performance',
+    },
+    {
+      value: 'interests_heavy',
+      label: 'Interest-Focused (25% / 75%)',
+      desc:  'Prioritises projects aligned with the group\'s selected domains and RDIA priorities',
+    },
+  ];
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl text-gray-900 mb-2">Group Settings</h1>
-        <p className="text-gray-600">
-          Adjust how recommendations are weighted for your group
+        <p className="text-gray-500 text-sm">
+          Adjust how recommendations are weighted. Saving will regenerate recommendations immediately.
         </p>
       </div>
 
       <div className="space-y-6">
+
         <Card className="border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-          <CardContent className="pt-6">
+          <CardContent className="pt-5 pb-4">
             <div className="flex items-start gap-3">
-              <Scale className="w-6 h-6 text-indigo-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-indigo-900">
-                  <strong>How recommendations work:</strong> The system balances two factors:
-                </p>
-                <ul className="text-sm text-indigo-800 mt-2 space-y-1">
-                  <li>• <strong>Competency:</strong> Based on courses taken and grades achieved</li>
-                  <li>• <strong>Interests:</strong> Based on selected domains and priorities</li>
-                </ul>
+              <Scale className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-indigo-800">
+                <strong>How it works:</strong> The recommender combines two signals —
+                <em> Competency</em> (courses + grades) and
+                <em> Interests</em> (selected domains + RDIA priority).
+                Choose the balance that best reflects your group's focus.
               </div>
             </div>
           </CardContent>
@@ -162,90 +138,46 @@ export default function GroupSettingsPage({ groupFinalized, isLeader, onWeightsU
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-600" />
-              Recommendation Balance
+              <TrendingUp className="w-5 h-5 text-purple-600" /> Weighting Mode
             </CardTitle>
-            <CardDescription>
-              Choose a preset or customize using the slider below
-            </CardDescription>
+            <CardDescription>Select a preset weighting</CardDescription>
           </CardHeader>
           <CardContent>
-            <RadioGroup value={weightingMode} onValueChange={handleModeChange} className="space-y-3">
-              <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-gray-50">
-                <RadioGroupItem value="balanced" id="balanced" />
-                <div className="flex-1">
-                  <Label htmlFor="balanced" className="font-medium cursor-pointer">
-                    Balanced (50/50)
-                  </Label>
-                  <p className="text-sm text-gray-500">Equal weight to academic background and personal interests</p>
+            <RadioGroup value={mode} onValueChange={setMode} className="space-y-3">
+              {options.map(opt => (
+                <div
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                    mode === opt.value ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setMode(opt.value)}
+                >
+                  <RadioGroupItem value={opt.value} id={`ps-${opt.value}`} className="mt-0.5" />
+                  <div>
+                    <Label htmlFor={`ps-${opt.value}`} className="font-medium cursor-pointer">
+                      {opt.label}
+                    </Label>
+                    <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-gray-50">
-                <RadioGroupItem value="courses_heavy" id="courses_heavy" />
-                <div className="flex-1">
-                  <Label htmlFor="courses_heavy" className="font-medium cursor-pointer">
-                    Competency Focused (75/25)
-                  </Label>
-                  <p className="text-sm text-gray-500">Prioritizes projects matching your academic performance</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-gray-50">
-                <RadioGroupItem value="interests_heavy" id="interests_heavy" />
-                <div className="flex-1">
-                  <Label htmlFor="interests_heavy" className="font-medium cursor-pointer">
-                    Interest Focused (25/75)
-                  </Label>
-                  <p className="text-sm text-gray-500">Prioritizes projects matching your selected interests</p>
-                </div>
-              </div>
+              ))}
             </RadioGroup>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Custom Weight Adjustment</CardTitle>
-            <CardDescription>
-              Drag the slider to fine-tune the balance
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <Label className="text-indigo-700">Competency (Courses & Grades)</Label>
-                <span className="text-lg font-bold text-indigo-600">{Math.round(competencyWeight * 100)}%</span>
-              </div>
-              <Slider
-                value={[competencyWeight]}
-                onValueChange={handleCompetencyChange}
-                min={0}
-                max={1}
-                step={0.05}
-                className="w-full"
-              />
-              <div className="flex justify-between text-sm text-gray-500">
-                <span>Interests</span>
-                <span>Balanced</span>
-                <span>Competency</span>
-              </div>
-            </div>
-
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                <strong>Current Settings:</strong> {Math.round(competencyWeight * 100)}% Competency, {Math.round(interestsWeight * 100)}% Interests
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-indigo-600 to-purple-600">
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Settings & Update Recommendations'}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6"
+          >
+            {saving
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              : <Save className="w-4 h-4 mr-2" />}
+            {saving ? 'Saving…' : 'Save & Regenerate Recommendations'}
           </Button>
         </div>
+
       </div>
     </div>
   );

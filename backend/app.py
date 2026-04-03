@@ -1,6 +1,13 @@
 # backend/app.py
 """
-Main Flask application for the Student Project Recommendation System.
+Main Flask application — Student Project Recommendation System.
+
+Enforced system flow:
+  1. All group members must have a complete profile
+  2. The group leader must select the weighting mode
+  3. Leader clicks "Finalize" → recommendations are generated
+
+Recommendations are NEVER generated unless ALL three conditions are met.
 """
 
 from flask import Flask, request, jsonify, session
@@ -13,17 +20,16 @@ import json
 from datetime import timedelta
 from functools import wraps
 
-# Add the parent directory to sys.path so backend can import the shared engine
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from recommender_system import RecommenderSystem
 from database import Database
-from models import User, StudentData, GroupData, StudentProfile
+from models import User, GroupData, StudentProfile
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APP CONFIGURATION
+# APP SETUP
 # ─────────────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
@@ -31,54 +37,156 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-i
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
-
-# FIX (Bug): SESSION_FILE_DIR was not set. Without it Flask-Session stores
-# sessions in a relative './flask_session' directory which breaks when the
-# working directory changes.  Point it explicitly to a subdirectory of the
-# backend folder so it always resolves to the same location.
 app.config["SESSION_FILE_DIR"] = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "flask_session"
 )
 os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
 
-# FIX (Bug): CORS was only allowing http://localhost:3000. Vite defaults to
-# port 5173. Accept both so the frontend works regardless of which port Vite
-# picks up (vite.config.ts explicitly sets 3000, but having both is safer).
-CORS(
-    app,
-    origins=["http://localhost:3000", "http://localhost:5173"],
-    supports_credentials=True,
-)
-
+CORS(app, origins=["http://localhost:3000", "http://localhost:5173"], supports_credentials=True)
 bcrypt = Bcrypt(app)
 Session(app)
 
-# Initialize database and recommender system (both loaded once at startup)
 db = Database()
 recommender_system = RecommenderSystem()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# AUTH DECORATOR
+# HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
 def login_required(f):
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated(*args, **kwargs):
         if "user_id" not in session:
             return jsonify({"error": "Authentication required"}), 401
         return f(*args, **kwargs)
-    return decorated_function
+    return decorated
+
+
+def _is_profile_complete(user_id: int) -> bool:
+    """
+    A profile is complete when the student has provided:
+      - at least 1 course with a grade
+      - at least 1 interest domain
+      - at least 1 application domain
+      - an RDIA selection
+    """
+    profile = db.get_profile(user_id)
+    if not profile:
+        return False
+    has_courses  = len(profile.get("courses", [])) >= 1
+    # Verify every course entry actually has a non-empty grade
+    grades_ok    = all(c.get("grade", "") for c in profile.get("courses", []))
+    has_interest = len(profile.get("interests", [])) >= 1
+    has_app      = len(profile.get("applications", [])) >= 1
+    has_rdia     = bool(profile.get("rdia", "").strip())
+    return has_courses and grades_ok and has_interest and has_app and has_rdia
+
+
+def _check_group_ready(group_id: str) -> dict:
+    """
+    Return a dict describing whether the group meets all pre-finalization conditions.
+    {
+      "all_profiles_complete": bool,
+      "weights_selected":      bool,
+      "member_statuses":       [{id, name, email, role, profile_complete}, ...],
+      "ready":                 bool,
+    }
+    """
+    group = db.get_group(group_id)
+    if not group:
+        return {"ready": False, "error": "Group not found"}
+
+    member_statuses = []
+    all_complete = True
+    for uid in group["members"]:
+        user = db.get_user_by_id(uid)
+        complete = _is_profile_complete(uid)
+        if not complete:
+            all_complete = False
+        leader = (uid == group["created_by"])
+        member_statuses.append({
+            "id":               uid,
+            "name":             user["name"] if user else "Unknown",
+            "email":            user["email"] if user else "",
+            "role":             "Leader" if leader else "Member",
+            "profile_complete": complete,
+        })
+
+    weights = db.get_group_weights(group_id)
+    # weights_selected is True if the leader has explicitly saved a mode
+    # (the DB row will exist with any value once saved)
+    weights_selected = db.has_group_weights(group_id)
+
+    return {
+        "all_profiles_complete": all_complete,
+        "weights_selected":      weights_selected,
+        "weighting_mode":        weights.get("weighting_mode", "balanced"),
+        "member_statuses":       member_statuses,
+        "ready":                 all_complete and weights_selected,
+    }
+
+
+def _build_member_list(group: dict) -> list:
+    members = []
+    for uid in group["members"]:
+        user = db.get_user_by_id(uid)
+        if user:
+            members.append({
+                "id":    user["id"],
+                "name":  user["name"],
+                "email": user["email"],
+                "role":  "Leader" if uid == group["created_by"] else "Member",
+            })
+    return members
+
+
+def _generate_recommendations(group_id: str):
+    """Build group JSON and run the recommender system."""
+    group = db.get_group(group_id)
+    if not group:
+        return None
+
+    weights = db.get_group_weights(group_id)
+
+    students = []
+    for uid in group["members"]:
+        profile = db.get_profile(uid)
+        user    = db.get_user_by_id(uid)
+        if profile and user:
+            students.append({
+                "student_id":   str(uid),
+                "name":         user["name"],
+                "courses":      profile.get("courses", []),
+                "interests":    profile.get("interests", []),
+                "applications": profile.get("applications", []),
+                "rdia":         profile.get("rdia", ""),
+            })
+
+    if not students:
+        return None
+
+    group_json = {
+        "group_id":       group_id,
+        "weighting_mode": weights.get("weighting_mode", "balanced"),
+        "students":       students,
+    }
+
+    try:
+        return recommender_system.recommend_all(group_json)
+    except Exception as e:
+        print(f"[ERROR] Recommendation engine failed for {group_id}: {e}")
+        import traceback; traceback.print_exc()
+        return None
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# AUTH ROUTES
+# AUTH
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
-    data = request.json
-
+    data = request.json or {}
     for field in ["email", "password", "name", "user_type"]:
         if field not in data:
             return jsonify({"error": f"Missing required field: {field}"}), 400
@@ -86,63 +194,35 @@ def signup():
     if db.get_user_by_email(data["email"]):
         return jsonify({"error": "Email already registered"}), 409
 
-    hashed_password = bcrypt.generate_password_hash(data["password"]).decode("utf-8")
-
+    hashed = bcrypt.generate_password_hash(data["password"]).decode("utf-8")
     user = User(
-        email=data["email"],
-        password_hash=hashed_password,
-        name=data["name"],
-        user_type=data["user_type"],
-        student_id=data.get("student_id", ""),
-        academic_year=data.get("academic_year", ""),
-        major=data.get("major", "Computer Science"),
+        email=data["email"], password_hash=hashed, name=data["name"],
+        user_type=data["user_type"], student_id=data.get("student_id", ""),
+        academic_year=data.get("academic_year", ""), major=data.get("major", "Computer Science"),
     )
-
     user_id = db.create_user(user)
-    session["user_id"]    = user_id
-    session["user_email"] = user.email
-    session["user_name"]  = user.name
-    session["user_type"]  = user.user_type
-
-    return jsonify({
-        "message": "User created successfully",
-        "user": {
-            "id":        user_id,
-            "email":     user.email,
-            "name":      user.name,
-            "user_type": user.user_type,
-        },
-    }), 201
+    session.update({"user_id": user_id, "user_email": user.email,
+                    "user_name": user.name, "user_type": user.user_type})
+    return jsonify({"message": "User created successfully",
+                    "user": {"id": user_id, "email": user.email,
+                             "name": user.name, "user_type": user.user_type}}), 201
 
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    data = request.json
-
+    data = request.json or {}
     if not data.get("email") or not data.get("password"):
         return jsonify({"error": "Email and password required"}), 400
 
     user = db.get_user_by_email(data["email"])
-    if not user:
+    if not user or not bcrypt.check_password_hash(user["password_hash"], data["password"]):
         return jsonify({"error": "Invalid credentials"}), 401
 
-    if not bcrypt.check_password_hash(user["password_hash"], data["password"]):
-        return jsonify({"error": "Invalid credentials"}), 401
-
-    session["user_id"]    = user["id"]
-    session["user_email"] = user["email"]
-    session["user_name"]  = user["name"]
-    session["user_type"]  = user["user_type"]
-
-    return jsonify({
-        "message": "Login successful",
-        "user": {
-            "id":        user["id"],
-            "email":     user["email"],
-            "name":      user["name"],
-            "user_type": user["user_type"],
-        },
-    }), 200
+    session.update({"user_id": user["id"], "user_email": user["email"],
+                    "user_name": user["name"], "user_type": user["user_type"]})
+    return jsonify({"message": "Login successful",
+                    "user": {"id": user["id"], "email": user["email"],
+                             "name": user["name"], "user_type": user["user_type"]}}), 200
 
 
 @app.route("/api/auth/logout", methods=["POST"])
@@ -157,34 +237,30 @@ def get_current_user():
     user = db.get_user_by_id(session["user_id"])
     if not user:
         return jsonify({"error": "User not found"}), 404
-
     return jsonify({
-        "id":            user["id"],
-        "email":         user["email"],
-        "name":          user["name"],
-        "user_type":     user["user_type"],
-        "student_id":    user.get("student_id", ""),
-        "academic_year": user.get("academic_year", ""),
-        "major":         user.get("major", ""),
+        "id": user["id"], "email": user["email"], "name": user["name"],
+        "user_type": user["user_type"], "student_id": user.get("student_id", ""),
+        "academic_year": user.get("academic_year", ""), "major": user.get("major", ""),
     }), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STUDENT PROFILE ROUTES
+# PROFILE
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/profile", methods=["POST"])
 @login_required
 def save_profile():
-    data = request.json
-
+    data = request.json or {}
     for key in ["courses", "interests", "applications", "rdia"]:
         if key not in data:
-            return jsonify({"error": f"Missing required data section: {key}"}), 400
+            return jsonify({"error": f"Missing required section: {key}"}), 400
 
     for course in data.get("courses", []):
         if "course_code" not in course or "grade" not in course:
             return jsonify({"error": "Each course must have course_code and grade"}), 400
+        if not course.get("grade", "").strip():
+            return jsonify({"error": f"Grade missing for course {course['course_code']}"}), 400
 
     profile = StudentProfile(
         user_id=session["user_id"],
@@ -196,9 +272,9 @@ def save_profile():
         rdia=data.get("rdia", ""),
         weighting_mode=data.get("weighting_mode", "balanced"),
     )
-
     db.save_profile(profile)
-    return jsonify({"message": "Profile saved successfully"}), 200
+    return jsonify({"message": "Profile saved successfully",
+                    "complete": _is_profile_complete(session["user_id"])}), 200
 
 
 @app.route("/api/profile", methods=["GET"])
@@ -207,14 +283,10 @@ def get_profile():
     profile = db.get_profile(session["user_id"])
     if not profile:
         return jsonify({
-            "required_courses": [],
-            "elective_courses": [],
-            "courses":          [],
-            "interests":        [],
-            "applications":     [],
-            "rdia":             "",
-            "weighting_mode":   "balanced",
+            "required_courses": [], "elective_courses": [], "courses": [],
+            "interests": [], "applications": [], "rdia": "", "weighting_mode": "balanced",
         }), 200
+    profile["complete"] = _is_profile_complete(session["user_id"])
     return jsonify(profile), 200
 
 
@@ -223,59 +295,45 @@ def get_profile():
 def get_profile_completion():
     profile = db.get_profile(session["user_id"])
     if not profile:
-        return jsonify({"completion": 0}), 200
+        return jsonify({"completion": 0, "details": {}}), 200
 
-    completed = 0
-    if len(profile.get("courses", [])) >= 5:
-        completed += 1
-    if len(profile.get("interests", [])) >= 2:
-        completed += 1
-    if profile.get("rdia"):
-        completed += 1
-    if len(profile.get("applications", [])) >= 1:
-        completed += 1
-
-    return jsonify({"completion": (completed / 4) * 100}), 200
+    courses  = profile.get("courses", [])
+    grade_ok = all(c.get("grade", "") for c in courses)
+    steps = {
+        "courses":      len(courses) >= 1 and grade_ok,
+        "interests":    len(profile.get("interests", [])) >= 1,
+        "applications": len(profile.get("applications", [])) >= 1,
+        "rdia":         bool(profile.get("rdia", "").strip()),
+    }
+    pct = sum(steps.values()) / len(steps) * 100
+    return jsonify({"completion": pct, "details": steps}), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# GROUP ROUTES
+# GROUP
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/group/create", methods=["POST"])
 @login_required
 def create_group():
-    data = request.json
+    data = request.json or {}
     if not data.get("group_name"):
         return jsonify({"error": "Group name required"}), 400
 
     import random, string
-    group_id = "GP-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-
-    group = GroupData(
-        group_id=group_id,
-        group_name=data["group_name"],
-        created_by=session["user_id"],
-        members=[session["user_id"]],
-        is_finalized=False,
-    )
-
+    gid = "GP-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    group = GroupData(group_id=gid, group_name=data["group_name"],
+                      created_by=session["user_id"], members=[session["user_id"]])
     db.create_group(group)
-    return jsonify({
-        "message": "Group created successfully",
-        "group": {
-            "id":           group_id,
-            "name":         data["group_name"],
-            "members":      [session["user_id"]],
-            "is_finalized": False,
-        },
-    }), 201
+    return jsonify({"message": "Group created successfully",
+                    "group": {"id": gid, "name": data["group_name"],
+                              "members": [session["user_id"]], "is_finalized": False}}), 201
 
 
 @app.route("/api/group/join", methods=["POST"])
 @login_required
 def join_group():
-    data = request.json
+    data = request.json or {}
     if not data.get("group_id"):
         return jsonify({"error": "Group ID required"}), 400
 
@@ -283,25 +341,18 @@ def join_group():
     if not group:
         return jsonify({"error": "Group not found"}), 404
     if group["is_finalized"]:
-        return jsonify({"error": "Cannot join finalized group"}), 400
+        return jsonify({"error": "Cannot join a finalized group"}), 400
     if session["user_id"] in group["members"]:
         return jsonify({"error": "Already a member of this group"}), 400
 
     group["members"].append(session["user_id"])
     db.update_group_members(data["group_id"], group["members"])
 
-    updated_group = db.get_group(data["group_id"])
-    members = _build_member_list(updated_group)
-
-    return jsonify({
-        "message": "Joined group successfully",
-        "group": {
-            "id":           updated_group["group_id"],
-            "name":         updated_group["group_name"],
-            "members":      members,
-            "is_finalized": updated_group["is_finalized"],
-        },
-    }), 200
+    updated = db.get_group(data["group_id"])
+    return jsonify({"message": "Joined group successfully",
+                    "group": {"id": updated["group_id"], "name": updated["group_name"],
+                              "members": _build_member_list(updated),
+                              "is_finalized": updated["is_finalized"]}}), 200
 
 
 @app.route("/api/group", methods=["GET"])
@@ -310,34 +361,77 @@ def get_group():
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"has_group": False}), 200
-
     return jsonify({
         "has_group": True,
         "group": {
             "id":           group["group_id"],
             "name":         group["group_name"],
             "members":      _build_member_list(group),
-            "is_finalized": group["is_finalized"],
+            "is_finalized": bool(group["is_finalized"]),
+            "created_by":   group["created_by"],
         },
     }), 200
+
+
+@app.route("/api/group/readiness", methods=["GET"])
+@login_required
+def get_group_readiness():
+    """
+    Returns per-member profile completion status + weight status.
+    Used by the GroupPage to gate the Finalize button and display warnings.
+    """
+    group = db.get_user_group(session["user_id"])
+    if not group:
+        return jsonify({"error": "No group found"}), 404
+
+    status = _check_group_ready(group["group_id"])
+    return jsonify(status), 200
 
 
 @app.route("/api/group/finalize", methods=["POST"])
 @login_required
 def finalize_group():
+    """
+    Finalize the group. Enforces ALL three conditions:
+      1. At least 2 members
+      2. All member profiles are complete
+      3. Leader has saved a weighting mode
+    """
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found"}), 404
+    if session["user_id"] != group["created_by"]:
+        return jsonify({"error": "Only the group leader can finalize"}), 403
+    if group["is_finalized"]:
+        return jsonify({"error": "Group is already finalized"}), 400
     if len(group["members"]) < 2:
-        return jsonify({"error": "Group must have at least 2 members to finalize"}), 400
+        return jsonify({"error": "Group must have at least 2 members"}), 400
+
+    status = _check_group_ready(group["group_id"])
+
+    if not status["all_profiles_complete"]:
+        incomplete = [m["name"] for m in status["member_statuses"] if not m["profile_complete"]]
+        return jsonify({
+            "error": "Cannot finalize: some members have incomplete profiles",
+            "incomplete_members": incomplete,
+        }), 400
+
+    if not status["weights_selected"]:
+        return jsonify({
+            "error": "Cannot finalize: the leader must select the weighting mode first",
+        }), 400
 
     db.finalize_group(group["group_id"])
 
-    recs = generate_group_recommendations(group["group_id"])
+    # Generate recommendations immediately
+    recs = _generate_recommendations(group["group_id"])
     if recs:
         db.save_group_recommendations(group["group_id"], recs)
-
-    return jsonify({"message": "Group finalized successfully", "recommendations_ready": True}), 200
+        return jsonify({"message": "Group finalized and recommendations generated",
+                        "recommendations_ready": True}), 200
+    else:
+        return jsonify({"message": "Group finalized but recommendation generation failed — try again from settings",
+                        "recommendations_ready": False}), 200
 
 
 @app.route("/api/group/leave", methods=["POST"])
@@ -347,97 +441,18 @@ def leave_group():
     if not group:
         return jsonify({"error": "No group found"}), 404
     if group["is_finalized"]:
-        return jsonify({"error": "Cannot leave finalized group"}), 400
+        return jsonify({"error": "Cannot leave a finalized group"}), 400
 
     group["members"].remove(session["user_id"])
     if len(group["members"]) == 0:
         db.delete_group(group["group_id"])
     else:
         db.update_group_members(group["group_id"], group["members"])
-
     return jsonify({"message": "Left group successfully"}), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# RECOMMENDATION HELPERS & ROUTES
-# ═════════════════════════════════════════════════════════════════════════════
-
-def generate_group_recommendations(group_id: str):
-    """
-    Build the recommendation payload for a group and return it.
-
-    FIX (Bug): The original function hardcoded 'weighting_mode': 'balanced'
-    instead of reading the group's persisted weight settings from the DB.
-    This meant that changing weights via PUT /api/group/weights had no effect
-    on the initial recommendation generation triggered by group finalization.
-    """
-    group = db.get_group(group_id)
-    if not group:
-        return None
-
-    members_profiles = []
-    for member_id in group["members"]:
-        profile = db.get_profile(member_id)
-        if profile:
-            user = db.get_user_by_id(member_id)
-            members_profiles.append({
-                "student_id":   member_id,
-                "name":         user["name"],
-                "courses":      profile.get("courses", []),
-                "interests":    profile.get("interests", []),
-                "applications": profile.get("applications", []),
-                "rdia":         profile.get("rdia", ""),
-            })
-
-    if not members_profiles:
-        return None
-
-    # FIX: fetch the group's saved weighting mode instead of hardcoding 'balanced'
-    weights = db.get_group_weights(group_id)
-
-    group_json = {
-        "group_id":        group_id,
-        "weighting_mode":  weights.get("weighting_mode", "balanced"),
-        "students":        members_profiles,
-    }
-
-    try:
-        return recommender_system.recommend_all(group_json)
-    except Exception as e:
-        print(f"Error generating recommendations: {e}")
-        return None
-
-
-@app.route("/api/recommendations", methods=["GET"])
-@login_required
-def get_recommendations():
-    group = db.get_user_group(session["user_id"])
-    if not group:
-        return jsonify({"error": "No group found"}), 404
-    if not group["is_finalized"]:
-        return jsonify({"error": "Group not finalized yet"}), 400
-
-    recommendations = db.get_group_recommendations(group["group_id"])
-    if not recommendations:
-        recommendations = generate_group_recommendations(group["group_id"])
-        if recommendations:
-            db.save_group_recommendations(group["group_id"], recommendations)
-
-    if not recommendations:
-        return jsonify({"error": "Unable to generate recommendations"}), 500
-
-    return jsonify({
-        "group_id":     recommendations.get("group_id", group["group_id"]),
-        "group_profile": recommendations.get("group_profile", {}),
-        "projects":      recommendations.get("recommended_projects", []),
-        "interests":     recommendations.get("recommended_interests", []),
-        "applications":  recommendations.get("recommended_applications", []),
-        "rdia":          recommendations.get("recommended_rdia", []),
-    }), 200
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# GROUP WEIGHT SETTINGS
+# GROUP WEIGHTS  (can be set BEFORE or AFTER finalization)
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/group/weights", methods=["GET"])
@@ -452,231 +467,184 @@ def get_group_weights():
         "weighting_mode":    weights.get("weighting_mode", "balanced"),
         "competency_weight": weights.get("competency_weight", 0.5),
         "interests_weight":  weights.get("interests_weight", 0.5),
+        "is_set":            db.has_group_weights(group["group_id"]),
     }), 200
 
 
 @app.route("/api/group/weights", methods=["PUT"])
 @login_required
 def update_group_weights():
-    data  = request.json
+    """
+    The leader saves the weighting mode.
+    This is allowed both BEFORE finalization (to gate the Finalize button)
+    and AFTER finalization (to regenerate recommendations).
+    """
+    data  = request.json or {}
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found"}), 404
     if session["user_id"] != group["created_by"]:
-        return jsonify({"error": "Only group leader can adjust weights"}), 403
-    if not group["is_finalized"]:
-        return jsonify({"error": "Group must be finalized before adjusting weights"}), 400
+        return jsonify({"error": "Only the group leader can set weights"}), 403
 
-    weighting_mode = data.get("weighting_mode", "balanced")
-    if weighting_mode == "courses_heavy":
-        comp_w, int_w = 0.75, 0.25
-    elif weighting_mode == "interests_heavy":
-        comp_w, int_w = 0.25, 0.75
+    mode = data.get("weighting_mode", "balanced")
+    if mode == "courses_heavy":
+        cw, iw = 0.75, 0.25
+    elif mode == "interests_heavy":
+        cw, iw = 0.25, 0.75
     else:
-        comp_w, int_w = 0.50, 0.50
+        cw, iw = 0.50, 0.50
+        mode = "balanced"
 
     db.save_group_weights(group["group_id"], {
-        "weighting_mode":    weighting_mode,
-        "competency_weight": comp_w,
-        "interests_weight":  int_w,
+        "weighting_mode": mode, "competency_weight": cw, "interests_weight": iw,
     })
 
-    group_json = _build_group_json_from_db(group["group_id"])
-    if group_json:
-        results = recommender_system.recommend_all(group_json)
-        db.save_group_recommendations(group["group_id"], results)
+    # If already finalized → regenerate recommendations with new weights
+    if group["is_finalized"]:
+        recs = _generate_recommendations(group["group_id"])
+        if recs:
+            db.save_group_recommendations(group["group_id"], recs)
 
     return jsonify({
-        "message":           "Weights updated successfully",
-        "weighting_mode":    weighting_mode,
-        "competency_weight": comp_w,
-        "interests_weight":  int_w,
+        "message":           "Weights saved successfully",
+        "weighting_mode":    mode,
+        "competency_weight": cw,
+        "interests_weight":  iw,
     }), 200
 
 
-def _build_group_json_from_db(group_id: str):
-    group = db.get_group(group_id)
+# ═════════════════════════════════════════════════════════════════════════════
+# RECOMMENDATIONS
+# ═════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/recommendations", methods=["GET"])
+@login_required
+def get_recommendations():
+    """
+    Returns recommendations only when ALL conditions are met:
+      1. User is in a finalized group
+      2. All member profiles are complete
+      3. Leader has saved weights
+    Otherwise returns a structured error describing what is missing.
+    """
+    group = db.get_user_group(session["user_id"])
     if not group:
-        return None
+        return jsonify({"error": "No group found", "condition": "no_group"}), 404
+    if not group["is_finalized"]:
+        return jsonify({"error": "Group not finalized yet", "condition": "not_finalized"}), 400
 
-    members_profiles = []
-    for member_id in group["members"]:
-        profile = db.get_profile(member_id)
-        if profile:
-            user = db.get_user_by_id(member_id)
-            members_profiles.append({
-                "student_id":   member_id,
-                "name":         user["name"],
-                "courses":      profile.get("courses", []),
-                "interests":    profile.get("interests", []),
-                "applications": profile.get("applications", []),
-                "rdia":         profile.get("rdia", ""),
-            })
+    # Double-check conditions even after finalization (data could have changed)
+    status = _check_group_ready(group["group_id"])
+    if not status["all_profiles_complete"]:
+        return jsonify({"error": "Some member profiles are incomplete",
+                        "condition": "incomplete_profiles",
+                        "incomplete_members": [m["name"] for m in status["member_statuses"]
+                                               if not m["profile_complete"]]}), 400
+    if not status["weights_selected"]:
+        return jsonify({"error": "Weighting mode not set by leader",
+                        "condition": "no_weights"}), 400
 
-    if not members_profiles:
-        return None
+    recs = db.get_group_recommendations(group["group_id"])
+    if not recs:
+        recs = _generate_recommendations(group["group_id"])
+        if recs:
+            db.save_group_recommendations(group["group_id"], recs)
 
-    weights = db.get_group_weights(group_id)
-    return {
-        "group_id":       group_id,
-        "weighting_mode": weights.get("weighting_mode", "balanced"),
-        "students":       members_profiles,
-    }
+    if not recs:
+        return jsonify({"error": "Unable to generate recommendations — ensure embeddings are built"}), 500
 
-
-# ═════════════════════════════════════════════════════════════════════════════
-# TRENDS / ANALYTICS (stubs)
-# ═════════════════════════════════════════════════════════════════════════════
-
-@app.route("/api/trends/domains", methods=["GET"])
-def get_domain_trends():
-    return jsonify({"message": "Coming soon", "data": []}), 200
-
-
-@app.route("/api/trends/methodologies", methods=["GET"])
-def get_methodology_trends():
-    return jsonify({"message": "Coming soon", "data": []}), 200
-
-
-@app.route("/api/trends/tools", methods=["GET"])
-def get_tool_trends():
-    return jsonify({"message": "Coming soon", "data": []}), 200
+    return jsonify({
+        "group_id":      recs.get("group_id", group["group_id"]),
+        "group_profile": recs.get("group_profile", {}),
+        "projects":      recs.get("recommended_projects", []),
+        "interests":     recs.get("recommended_interests", []),
+        "applications":  recs.get("recommended_applications", []),
+        "rdia":          recs.get("recommended_rdia", []),
+    }), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PROJECT DATA
-# ═════════════════════════════════════════════════════════════════════════════
-
-@app.route("/api/projects", methods=["GET"])
-def get_projects():
-    project_index_path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
-    try:
-        with open(project_index_path, "r", encoding="utf-8") as f:
-            projects = json.load(f)
-
-        formatted = []
-        for pid, project in projects.items():
-            formatted.append({
-                "id":                   pid,
-                "title":                project.get("title", ""),
-                "abstract":             project.get("abstract", ""),
-                "supervisor":           project.get("supervisor_name", ""),
-                "semester":             project.get("semester", ""),
-                "academic_year":        project.get("academic_year", ""),
-                "domain_of_interest":   project.get("interest", []),
-                "domain_of_application": project.get("application", []),
-                "rdia_priority":        project.get("rdia", []),
-                "keywords":             project.get("keywords", []),
-            })
-        return jsonify(formatted), 200
-
-    except FileNotFoundError:
-        return jsonify({
-            "message": "Projects data not available yet. Run phase2_embed.py first.",
-            "projects": [],
-        }), 200
-    except Exception as e:
-        print(f"Error loading projects: {e}")
-        return jsonify([]), 200
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SUPERVISORS DATA
-# ═════════════════════════════════════════════════════════════════════════════
-
-@app.route("/api/supervisors", methods=["GET"])
-def get_supervisors():
-    project_index_path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
-    try:
-        with open(project_index_path, "r", encoding="utf-8") as f:
-            projects = json.load(f)
-
-        supervisors = {}
-        for pid, project in projects.items():
-            sup_name = project.get("supervisor_name", "")
-            if not sup_name:
-                continue
-            if sup_name not in supervisors:
-                supervisors[sup_name] = {
-                    "name":         sup_name,
-                    "projects":     0,
-                    "domains":      [],
-                    "applications": [],
-                }
-            supervisors[sup_name]["projects"] += 1
-            supervisors[sup_name]["domains"].extend(project.get("interest", []))
-            supervisors[sup_name]["applications"].extend(project.get("application", []))
-
-        for sup in supervisors.values():
-            sup["domains"]      = list(set(sup["domains"]))
-            sup["applications"] = list(set(sup["applications"]))
-
-        return jsonify(list(supervisors.values())), 200
-
-    except FileNotFoundError:
-        return jsonify({"message": "Supervisors data not available yet.", "supervisors": []}), 200
-    except Exception as e:
-        print(f"Error loading supervisors: {e}")
-        return jsonify([]), 200
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# DOMAIN DATA
+# DOMAIN DATA  (for dropdowns)
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/domains", methods=["GET"])
 def get_domains():
     try:
         data_dir = os.path.join(BASE_DIR, "data")
-
-        with open(os.path.join(data_dir, "Interest_Domains.json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(data_dir, "Interest_Domains.json"), encoding="utf-8") as f:
             interests = json.load(f)["DOMAIN_CATEGORIES"]
-
-        with open(os.path.join(data_dir, "Application_Domains.json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(data_dir, "Application_Domains.json"), encoding="utf-8") as f:
             applications = json.load(f)
-
-        with open(os.path.join(data_dir, "RDIA.json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(data_dir, "RDIA.json"), encoding="utf-8") as f:
             rdia = json.load(f)["RDIA"]
-
-        with open(os.path.join(data_dir, "courses.json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(data_dir, "courses.json"), encoding="utf-8") as f:
             courses_data = json.load(f)
-            courses = [
-                {"code": c["course_code"], "title": c["course_title"]}
-                for c in courses_data["courses"]
-            ]
-
-        return jsonify({
-            "interests":    interests,
-            "applications": applications,
-            "rdia":         rdia,
-            "courses":      courses,
-        }), 200
-
+            courses = [{"code": c["course_code"], "title": c["course_title"]}
+                       for c in courses_data["courses"]]
+        return jsonify({"interests": interests, "applications": applications,
+                        "rdia": rdia, "courses": courses}), 200
     except Exception as e:
-        print(f"Error loading domain data: {e}")
+        print(f"[ERROR] /api/domains: {e}")
         return jsonify({"error": "Failed to load domain data"}), 500
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# HELPERS
+# PROJECTS / SUPERVISORS / TRENDS  (read-only data endpoints)
 # ═════════════════════════════════════════════════════════════════════════════
 
-def _build_member_list(group: dict) -> list:
-    """Return a list of member detail dicts for the given group."""
-    members = []
-    for member_id in group["members"]:
-        user = db.get_user_by_id(member_id)
-        if user:
-            members.append({
-                "id":    user["id"],
-                "name":  user["name"],
-                "email": user["email"],
-                "role":  "Leader" if member_id == group["created_by"] else "Member",
-            })
-    return members
+@app.route("/api/projects", methods=["GET"])
+def get_projects():
+    path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            projects = json.load(f)
+        return jsonify([{
+            "id": pid, "title": p.get("title", ""), "abstract": p.get("abstract", ""),
+            "supervisor": p.get("supervisor_name", ""), "semester": p.get("semester", ""),
+            "academic_year": p.get("academic_year", ""),
+            "domain_of_interest": p.get("interest", []),
+            "domain_of_application": p.get("application", []),
+            "rdia_priority": p.get("rdia", []), "keywords": p.get("keywords", []),
+        } for pid, p in projects.items()]), 200
+    except FileNotFoundError:
+        return jsonify({"message": "Projects data not available yet. Run phase2_embed.py first.", "projects": []}), 200
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/api/supervisors", methods=["GET"])
+def get_supervisors():
+    path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            projects = json.load(f)
+        sups = {}
+        for pid, p in projects.items():
+            n = p.get("supervisor_name", "")
+            if not n: continue
+            if n not in sups:
+                sups[n] = {"name": n, "projects": 0, "domains": [], "applications": []}
+            sups[n]["projects"] += 1
+            sups[n]["domains"].extend(p.get("interest", []))
+            sups[n]["applications"].extend(p.get("application", []))
+        for s in sups.values():
+            s["domains"] = list(set(s["domains"]))
+            s["applications"] = list(set(s["applications"]))
+        return jsonify(list(sups.values())), 200
+    except FileNotFoundError:
+        return jsonify([]), 200
+
+
+@app.route("/api/trends/domains", methods=["GET"])
+def get_domain_trends():
+    return jsonify({"message": "Coming soon", "data": []}), 200
+
+@app.route("/api/trends/methodologies", methods=["GET"])
+def get_methodology_trends():
+    return jsonify({"message": "Coming soon", "data": []}), 200
+
+@app.route("/api/trends/tools", methods=["GET"])
+def get_tool_trends():
+    return jsonify({"message": "Coming soon", "data": []}), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

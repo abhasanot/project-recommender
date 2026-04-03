@@ -1,86 +1,74 @@
 // frontend/src/components/Dashboard.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
-import { User, Users, Lightbulb, LogOut, Home, FileText, TrendingUp, Settings, UserCheck } from 'lucide-react';
-import ProfilePage from './ProfilePage';
-import GroupPage from './GroupPage';
-import SimilarProjectsPage from './SimilarProjectsPage';
-import SupervisorsPage from './SupervisorsPage';
-import TrendsPage from './TrendsPage';
-import DashboardHome from './DashboardHome';
-import RecommendationsPage from './RecommendationsPage';
-import GroupSettingsPage from './GroupSettingsPage';
+import {
+  User, Users, Lightbulb, LogOut, Home,
+  FileText, TrendingUp, Settings, UserCheck,
+} from 'lucide-react';
+import ProfilePage          from './ProfilePage';
+import GroupPage            from './GroupPage';
+import SimilarProjectsPage  from './SimilarProjectsPage';
+import SupervisorsPage      from './SupervisorsPage';
+import TrendsPage           from './TrendsPage';
+import DashboardHome        from './DashboardHome';
+import RecommendationsPage  from './RecommendationsPage';
+import GroupSettingsPage    from './GroupSettingsPage';
 import api from '../services/api';
+
+type Page =
+  | 'home' | 'profile' | 'group' | 'recommendations'
+  | 'projects' | 'supervisors' | 'trends' | 'settings';
 
 interface DashboardProps {
   studentName: string;
-  onLogout: () => void;
+  onLogout:    () => void;
 }
 
-type Page =
-  | 'home'
-  | 'profile'
-  | 'group'
-  | 'recommendations'
-  | 'projects'
-  | 'supervisors'
-  | 'trends'
-  | 'settings';
-
 export default function Dashboard({ studentName, onLogout }: DashboardProps) {
-  const [currentPage, setCurrentPage]     = useState<Page>('home');
-  const [groupFinalized, setGroupFinalized] = useState(false);
-  /**
-   * FIX (Bug): The original code always passed `isLeader={false}` to
-   * GroupSettingsPage, meaning the group leader could never access weight
-   * settings — the UI always showed the "only the leader can adjust" message.
-   *
-   * We now fetch the current user's ID on mount and compare it against the
-   * group's leader ID returned by GET /api/group to set isLeader correctly.
-   */
-  const [isLeader, setIsLeader]           = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentPage,     setCurrentPage]     = useState<Page>('home');
+  const [groupFinalized,  setGroupFinalized]   = useState(false);
+  const [isLeader,        setIsLeader]         = useState(false);
+  const [refreshTrigger,  setRefreshTrigger]   = useState(0);
 
-  // Determine leader status whenever the group finalization state changes
-  useEffect(() => {
-    checkLeaderStatus();
-  }, [groupFinalized]);
-
-  const checkLeaderStatus = async () => {
+  // Derive isLeader by comparing /auth/me against the leader in /group
+  const syncLeaderStatus = useCallback(async () => {
     try {
-      const [meRes, groupRes] = await Promise.all([
+      const [meRes, grpRes] = await Promise.all([
         api.get('/auth/me'),
         api.get('/group'),
       ]);
-      if (groupRes.data.has_group) {
-        const currentUserId = meRes.data.id;
-        const leader = groupRes.data.group.members.find(
-          (m: any) => m.role === 'Leader'
-        );
-        // Compare as numbers (the API returns numeric IDs)
-        setIsLeader(leader?.id === currentUserId);
+      if (grpRes.data.has_group) {
+        const myId  = meRes.data.id;
+        const leader = grpRes.data.group.members.find((m: any) => m.role === 'Leader');
+        setIsLeader(leader?.id === myId);
       } else {
         setIsLeader(false);
       }
     } catch {
       setIsLeader(false);
     }
+  }, []);
+
+  useEffect(() => { syncLeaderStatus(); }, [syncLeaderStatus]);
+
+  const handleGroupFinalized = (finalized: boolean) => {
+    setGroupFinalized(finalized);
+    syncLeaderStatus();
   };
 
   const handleWeightsUpdated = () => {
-    // Increment trigger so RecommendationsPage re-fetches automatically
-    setRefreshTrigger((n) => n + 1);
+    setRefreshTrigger(n => n + 1);
   };
 
   const menuItems: { id: Page; label: string; icon: React.ElementType }[] = [
-    { id: 'home',            label: 'Home',             icon: Home        },
-    { id: 'profile',         label: 'My Profile',       icon: User        },
-    { id: 'group',           label: 'My Group',          icon: Users       },
-    { id: 'recommendations', label: 'Recommendations',  icon: Lightbulb   },
-    { id: 'projects',        label: 'Similar Projects',  icon: FileText    },
-    { id: 'supervisors',     label: 'Supervisors',       icon: UserCheck   },
-    { id: 'trends',          label: 'Trends',            icon: TrendingUp  },
-    { id: 'settings',        label: 'Group Settings',    icon: Settings    },
+    { id: 'home',            label: 'Home',             icon: Home       },
+    { id: 'profile',         label: 'My Profile',       icon: User       },
+    { id: 'group',           label: 'My Group',         icon: Users      },
+    { id: 'recommendations', label: 'Recommendations',  icon: Lightbulb  },
+    { id: 'projects',        label: 'Similar Projects', icon: FileText   },
+    { id: 'supervisors',     label: 'Supervisors',      icon: UserCheck  },
+    { id: 'trends',          label: 'Trends',           icon: TrendingUp },
+    { id: 'settings',        label: 'Group Settings',   icon: Settings   },
   ];
 
   const renderPage = () => {
@@ -98,10 +86,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
       case 'group':
         return (
           <GroupPage
-            onGroupFinalized={(finalized) => {
-              setGroupFinalized(finalized);
-              checkLeaderStatus();
-            }}
+            onGroupFinalized={handleGroupFinalized}
             groupFinalized={groupFinalized}
           />
         );
@@ -122,7 +107,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
         return (
           <GroupSettingsPage
             groupFinalized={groupFinalized}
-            isLeader={isLeader}           // ← FIX: was always false
+            isLeader={isLeader}
             onWeightsUpdated={handleWeightsUpdated}
           />
         );
@@ -150,39 +135,39 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
               <h1 className="text-xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Mu'een
               </h1>
-              <p className="text-xs text-gray-500">Recommendation System</p>
+              <p className="text-xs text-gray-400">Recommendation System</p>
             </div>
           </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
+          {menuItems.map(item => {
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
                 onClick={() => setCurrentPage(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all ${
                   currentPage === item.id
-                    ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 shadow-sm'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 font-medium shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <Icon className="w-4 h-4" />
+                {item.label}
               </button>
             );
           })}
         </nav>
 
         <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="mb-3 px-4 py-2 bg-white rounded-lg border border-gray-200">
-            <p className="text-xs text-gray-500">Logged in as</p>
-            <p className="text-sm text-gray-900 truncate">{studentName}</p>
+          <div className="mb-3 px-3 py-2 bg-white rounded-lg border border-gray-200">
+            <p className="text-xs text-gray-400">Logged in as</p>
+            <p className="text-sm text-gray-800 truncate font-medium">{studentName}</p>
           </div>
           <Button
             variant="outline"
-            className="w-full hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+            className="w-full text-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200"
             onClick={onLogout}
           >
             <LogOut className="w-4 h-4 mr-2" />
@@ -191,7 +176,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main content */}
       <main className="flex-1 overflow-auto">
         {renderPage()}
       </main>
