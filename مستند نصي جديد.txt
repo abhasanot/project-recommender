@@ -1,0 +1,85 @@
+venv\Scripts\activate
+
+python app.py
+
+
+npm run dev
+
+
+
+my profile:
+Uncaught Error: `Tooltip` must be used within `TooltipProvider`
+    useContext2 create-context.tsx:75
+    Tooltip tooltip.tsx:162
+    React 11
+    workLoop scheduler.development.js:266
+    flushWork scheduler.development.js:239
+    performWorkUntilDeadline scheduler.development.js:533
+23 create-context.tsx:75:13
+Uncaught Error: `Tooltip` must be used within `TooltipProvider`
+    useContext2 create-context.tsx:75
+    Tooltip tooltip.tsx:162
+    React 12
+    workLoop scheduler.development.js:266
+    flushWork scheduler.development.js:239
+    performWorkUntilDeadline scheduler.development.js:533
+23 create-context.tsx:75:13
+The above error occurred in the <Tooltip> component:
+
+Tooltip@http://localhost:3000/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=c57d4a28:203:7
+div
+div
+_c9@http://localhost:3000/src/components/ui/card.tsx:100:9
+div
+_c@http://localhost:3000/src/components/ui/card.tsx:20:8
+div
+div
+ProfilePage@http://localhost:3000/src/components/ProfilePage.tsx:51:53
+main
+div
+Dashboard@http://localhost:3000/src/components/Dashboard.tsx:30:34
+AppContent@http://localhost:3000/src/App.tsx:25:37
+AuthProvider@http://localhost:3000/src/contexts/AuthContext.tsx:30:29
+App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. 22 react-dom.development.js:18704:15
+The above error occurred in the <Tooltip> component:
+
+Tooltip@http://localhost:3000/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=c57d4a28:203:7
+h3
+_c5@http://localhost:3000/src/components/ui/card.tsx:60:9
+div
+_c3@http://localhost:3000/src/components/ui/card.tsx:40:9
+div
+_c@http://localhost:3000/src/components/ui/card.tsx:20:8
+div
+div
+ProfilePage@http://localhost:3000/src/components/ProfilePage.tsx:51:53
+main
+div
+Dashboard@http://localhost:3000/src/components/Dashboard.tsx:30:34
+AppContent@http://localhost:3000/src/App.tsx:25:37
+AuthProvider@http://localhost:3000/src/contexts/AuthContext.tsx:30:29
+App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. react-dom.development.js:18704:15
+    React 12
+    workLoop scheduler.development.js:266
+    flushWork scheduler.development.js:239
+    performWorkUntilDeadline scheduler.development.js:533
+Uncaught Error: `Tooltip` must be used within `TooltipProvider`
+    useContext2 create-context.tsx:75
+    Tooltip tooltip.tsx:162
+    React 9
+    workLoop scheduler.development.js:266
+    flushWork scheduler.development.js:239
+    performWorkUntilDeadline scheduler.development.js:533
+
+
+
+
+also:
+leader choose the النسب
+

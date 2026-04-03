@@ -15,13 +15,12 @@ import numpy as np
 from typing import List, Dict, Tuple
 
 # ── Hyperparameters ───────────────────────────────────────────────────────────
-TOP_K_DENSE  = 30    # candidates from dense search
-TOP_K_SPARSE = 30    # candidates from BM25 search
-TOP_N_RERANK = 15    # candidates entering policy re-ranking
-TOP_FINAL    = 10    # final recommendations returned
-RRF_K        = 60    # RRF constant (standard value)
+TOP_K_DENSE  = 30
+TOP_K_SPARSE = 30
+TOP_N_RERANK = 15
+TOP_FINAL    = 10
+RRF_K        = 60
 
-# Final score weights — tune during evaluation
 ALPHA = 0.50   # semantic similarity
 BETA  = 0.25   # application domain alignment
 GAMMA = 0.25   # RDIA alignment
@@ -29,7 +28,7 @@ GAMMA = 0.25   # RDIA alignment
 
 class ProjectRecommender:
     """
-    Recommends similar past projects using a hybrid pipeline.
+    Recommends similar past projects using a hybrid retrieval pipeline.
     Receives EmbeddingEngine as dependency — loads nothing itself.
     """
 
@@ -44,19 +43,8 @@ class ProjectRecommender:
         self,
         group_vec: np.ndarray,
         group_meta: dict,
-        top_final: int = TOP_FINAL
+        top_final: int = TOP_FINAL,
     ) -> List[dict]:
-        """
-        Run full pipeline and return ranked project recommendations.
-
-        Args:
-            group_vec  : normalized group profile vector from EmbeddingEngine
-            group_meta : {selected_interests, selected_applications, selected_rdia}
-            top_final  : number of final recommendations
-
-        Returns:
-            List of project dicts with rank, metadata, scores, explanation.
-        """
         dense           = self._dense_retrieval(group_vec)
         sparse          = self._sparse_retrieval(group_meta)
         dense_score_map = {pid: s for pid, s in dense}
@@ -76,8 +64,10 @@ class ProjectRecommender:
         """
         Batch dot product: group_vec · project_matrix.T
         Vectors are L2-normalized → dot product = cosine similarity.
-        Returns top-K (project_id, score) sorted descending.
         """
+        if self.engine.project_matrix.size == 0:
+            return []
+
         scores  = self.engine.project_matrix @ query_vec
         top_idx = np.argsort(scores)[::-1][:TOP_K_DENSE]
         return [(self.engine.project_ids[i], float(scores[i])) for i in top_idx]
@@ -88,9 +78,17 @@ class ProjectRecommender:
 
     def _sparse_retrieval(self, group_meta: dict) -> List[Tuple[str, float]]:
         """
-        BM25 keyword search. Query = group's domain label names.
-        Returns only results with non-zero BM25 scores.
+        BM25 keyword search using group's domain label names.
+
+        FIX (Bug): The original code called self.engine.bm25.get_scores() without
+        checking whether self.engine.bm25 is None.  When there are no project
+        vectors (e.g. before phase2_embed.py is run), EmbeddingEngine sets
+        self.bm25 = None, causing an AttributeError here.  We now guard against
+        this and return an empty list instead of crashing.
         """
+        if self.engine.bm25 is None:
+            return []
+
         terms = (
             group_meta["selected_interests"] +
             group_meta["selected_applications"] +
@@ -114,11 +112,11 @@ class ProjectRecommender:
     def _rrf_fusion(
         self,
         dense: List[Tuple[str, float]],
-        sparse: List[Tuple[str, float]]
+        sparse: List[Tuple[str, float]],
     ) -> List[Tuple[str, float]]:
         """
         RRF_score(d) = 1/(k + rank_dense) + 1/(k + rank_sparse)
-        Projects appearing in only one list still get partial credit.
+        Projects in only one list still get partial credit.
         """
         scores: Dict[str, float] = {}
         for rank, (pid, _) in enumerate(dense, 1):
@@ -135,43 +133,35 @@ class ProjectRecommender:
         self,
         fused: List[Tuple[str, float]],
         group_meta: dict,
-        dense_scores: Dict[str, float]
+        dense_scores: Dict[str, float],
     ) -> List[dict]:
         """
         Final_Score = α·semantic + β·context_alignment + γ·RDIA_alignment
-
-        Diversity penalty removed: projects are diverse by nature, so penalizing
-        domain overlap degrades accuracy without preventing redundancy.
         """
         candidates = fused[:TOP_N_RERANK * 2]
         scored     = []
 
-        # Normalize helper — handles "&" vs "and" inconsistencies in tags
-        def normalize(s: str) -> str:
+        def _norm(s: str) -> str:
             return s.lower().replace("&", "and").strip()
 
-        group_apps = set(a.lower()    for a in group_meta["selected_applications"])
-        group_rdia = set(normalize(r) for r in group_meta["selected_rdia"])
+        group_apps = set(a.lower() for a in group_meta["selected_applications"])
+        group_rdia = set(_norm(r)  for r in group_meta["selected_rdia"])
 
         for pid, rrf_score in candidates:
             if pid not in self.engine.project_index:
                 continue
             meta = self.engine.project_index[pid]
 
-            # ── Semantic: shift cosine [-1,1] → [0,1] ────────────────────────
             sem = (dense_scores.get(pid, 0.0) + 1.0) / 2.0
 
-            # ── Context alignment: fraction of group apps matched ─────────────
             proj_apps = set(a.lower() for a in meta.get("application", []))
             ctx = (len(proj_apps & group_apps) / len(group_apps)
                    if group_apps else 0.0)
 
-            # ── RDIA alignment ────────────────────────────────────────────────
-            proj_rdia = set(normalize(r) for r in meta.get("rdia", []))
+            proj_rdia = set(_norm(r) for r in meta.get("rdia", []))
             rdia = (len(proj_rdia & group_rdia) / len(group_rdia)
                     if group_rdia else 0.0)
 
-            # ── Final policy score (no diversity penalty) ─────────────────────
             final = ALPHA * sem + BETA * ctx + GAMMA * rdia
 
             scored.append({
@@ -228,11 +218,11 @@ class ProjectRecommender:
         if matched:
             parts.append(f"Matches application domain(s): {', '.join(sorted(matched))}.")
 
-        def normalize(s: str) -> str:
+        def _norm(s: str) -> str:
             return s.lower().replace("&", "and").strip()
 
-        if (set(normalize(r) for r in meta.get("rdia", [])) &
-                set(normalize(r) for r in group_meta["selected_rdia"])):
+        if (set(_norm(r) for r in meta.get("rdia", [])) &
+                set(_norm(r) for r in group_meta["selected_rdia"])):
             parts.append("Aligns with the group's RDIA priority.")
 
         return " ".join(parts) if parts else "Selected based on overall profile similarity."

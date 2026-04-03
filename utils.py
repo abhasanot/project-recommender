@@ -1,57 +1,89 @@
-# utils.py - Update the data loading functions
+# utils.py
+"""
+Data loaders and helper functions shared across all files.
+"""
 
 import json
 import os
 import numpy as np
 from typing import List, Dict
 
-# Get the project root
+
 def get_project_root():
     """Get the absolute path to the project root directory"""
     return os.path.dirname(os.path.abspath(__file__))
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# GRADE → WEIGHT  (grade A+ → F embedding weight)
+# GRADE → WEIGHT  (grade A+ → F  or  numeric 0–4.5)
 # ─────────────────────────────────────────────────────────────────────────────
 
 GRADE_WEIGHTS = {
     "A+": 1.00,
-    "A": 0.95,
+    "A":  0.95,
     "B+": 0.85,
-    "B": 0.75,
+    "B":  0.75,
     "C+": 0.65,
-    "C": 0.55,
+    "C":  0.55,
     "D+": 0.45,
-    "D": 0.30
+    "D":  0.30,
 }
 
-def grade_to_weight(grade: str) -> float:
-    """Convert letter grade to embedding weight."""
-    grade = grade.strip().upper()
-    return GRADE_WEIGHTS.get(grade, 0.50)
+
+def grade_to_weight(grade) -> float:
+    """
+    Convert letter grade or numeric GPA grade to embedding weight.
+
+    FIX (Bug): The original root utils.py only handled string grades and would
+    crash with AttributeError when a numeric float/int was passed (e.g. grade=4.5).
+    This version handles both forms.
+    """
+    # ── Numeric grade (GPA style 0–4.5) ──────────────────────────────────────
+    if isinstance(grade, (int, float)):
+        if grade >= 4.5:
+            grade_str = "A+"
+        elif grade >= 4.0:
+            grade_str = "A"
+        elif grade >= 3.5:
+            grade_str = "B+"
+        elif grade >= 3.0:
+            grade_str = "B"
+        elif grade >= 2.5:
+            grade_str = "C+"
+        elif grade >= 2.0:
+            grade_str = "C"
+        elif grade >= 1.5:
+            grade_str = "D+"
+        else:
+            grade_str = "D"
+    else:
+        grade_str = str(grade).strip().upper()
+
+    return GRADE_WEIGHTS.get(grade_str, 0.50)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LOAD PLOs from courses.json
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_plos_from_courses(courses_path: str) -> Dict[str, str]:
-    """Extract the list of PLOs and return it as a dictionary {plo_id: description}"""
-    # If the path is relative, make it absolute relative to project root
+    """Extract PLOs → {plo_id: description}"""
     if not os.path.isabs(courses_path):
         courses_path = os.path.join(get_project_root(), courses_path)
-    
+
     with open(courses_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    
+
     plos_map = {}
     plo_categories = data.get("program_learning_outcomes", {})
     for category in ["knowledge", "skills", "values"]:
         for plo in plo_categories.get(category, []):
-            plo_id = plo.get("plo_id")
+            plo_id   = plo.get("plo_id")
             plo_desc = plo.get("plo_description")
             if plo_id and plo_desc:
                 plos_map[plo_id] = plo_desc
     return plos_map
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATA LOADERS
@@ -59,66 +91,57 @@ def load_plos_from_courses(courses_path: str) -> Dict[str, str]:
 
 def load_courses(path: str) -> Dict[str, dict]:
     """Load courses.json → {course_code: course_dict}"""
-    # If the path is relative, make it absolute relative to project root
     if not os.path.isabs(path):
         path = os.path.join(get_project_root(), path)
-    
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    # Convert list → dict for constant-time lookup
     return {c["course_code"]: c for c in data["courses"]}
+
 
 def load_interest_domains(path: str) -> Dict[str, str]:
     """Load Interest_Domains.json → {name: description}"""
     if not os.path.isabs(path):
         path = os.path.join(get_project_root(), path)
-    
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return {item["name"]: item["description"] for item in data["DOMAIN_CATEGORIES"]}
+
 
 def load_application_domains(path: str) -> Dict[str, str]:
     """Load Application_Domains.json → {Field: Focus}"""
     if not os.path.isabs(path):
         path = os.path.join(get_project_root(), path)
-    
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return {item["Field"]: item["Focus"] for item in data}
+
 
 def load_rdia(path: str) -> Dict[str, str]:
     """Load RDIA.json → {Label: Description}"""
     if not os.path.isabs(path):
         path = os.path.join(get_project_root(), path)
-    
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return {item["Label"]: item["Description"] for item in data["RDIA"]}
+
 
 def load_acm_taxonomy(path: str) -> Dict[str, str]:
     """Load ACM_CSS_taxonomy.json → flat dict {acm_id: 'full_path: description'}"""
     if not os.path.isabs(path):
         path = os.path.join(get_project_root(), path)
-    
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     flat = {}
 
     def extract_acm_ids(items, ancestor_names: list):
         for item in items:
-            name = item.get("name", "")
-            desc = item.get("description", "")
+            name    = item.get("name", "")
+            desc    = item.get("description", "")
             item_id = item.get("id", "")
-
             current_path = ancestor_names + ([name] if name else [])
-
             if item_id:
                 path_label = " > ".join(current_path)
-                if desc:
-                    flat[item_id] = f"{path_label}: {desc}"
-                else:
-                    flat[item_id] = path_label
-
+                flat[item_id] = f"{path_label}: {desc}" if desc else path_label
             if item.get("subcategories"):
                 extract_acm_ids(item["subcategories"], current_path)
 
@@ -126,25 +149,24 @@ def load_acm_taxonomy(path: str) -> Dict[str, str]:
         cat_name = category.get("name", "")
         cat_desc = category.get("description", "")
         cat_id   = category.get("id", "")
-
         if cat_id:
-            if cat_desc:
-                flat[cat_id] = f"{cat_name}: {cat_desc}"
-            else:
-                flat[cat_id] = cat_name
-
+            flat[cat_id] = f"{cat_name}: {cat_desc}" if cat_desc else cat_name
         if category.get("subcategories"):
             extract_acm_ids(category["subcategories"], [cat_name] if cat_name else [])
 
     return flat
 
+
 def load_all_projects(projects_dir: str) -> List[dict]:
     """Load all project JSON files from a folder."""
-    # If the path is relative, make it absolute relative to project root
     if not os.path.isabs(projects_dir):
         projects_dir = os.path.join(get_project_root(), projects_dir)
-    
+
     projects = []
+    if not os.path.exists(projects_dir):
+        print(f"  [WARNING] Projects directory not found: {projects_dir}")
+        return projects
+
     for fname in sorted(os.listdir(projects_dir)):
         if fname.endswith(".json"):
             with open(os.path.join(projects_dir, fname), "r", encoding="utf-8") as f:
@@ -154,59 +176,66 @@ def load_all_projects(projects_dir: str) -> List[dict]:
                     print(f"  [WARNING] Skipping {fname}: {e}")
     return projects
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # TEXT EXTRACTORS
-# Each function returns a list of text segments (NOT one big string).
-# Phase II encodes each segment separately then averages (Late Fusion).
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_course_texts(course: dict, plos_map: Dict[str, str] = None) -> List[str]:
     """
     Extract meaningful text segments from a course.
-    Returns: [title+description, level, prerequisites, credit hours, clo1 with Associated plos, clo2 with Associated plos, ...]
-    Excludes: course_code
+    Returns: [title+description, level, prerequisites, credit_hours, clo1, clo2, ...]
+
+    FIX (Bug): The original root utils.py had `if stmt: segments.append(stmt)` at
+    the wrong indentation — it was OUTSIDE the inner `for clo` loop, so only the
+    LAST CLO of each category was ever appended (silent data loss), and if a
+    category had zero CLOs the variable `stmt` would raise a NameError.
+    Correct placement is INSIDE the inner `for clo` loop.
     """
     segments = []
 
-    # Title + description as one segment (they describe the same thing)
+    # Title + description as one segment
     title = course.get("course_title", "")
     desc  = course.get("course_description", "")
     if title or desc:
         segments.append(f"{title}. {desc}".strip())
-    
-    # include other metadata that may affect meaning and retrieval (e.g. prerequisites, credit hours)
-    level= course.get("course_level", "")
+
+    level = course.get("course_level", "")
     if level:
         segments.append(f"Course level: {level}")
+
     prereq = course.get("prerequisites", "")
     if prereq:
+        if isinstance(prereq, list):
+            prereq = ", ".join(prereq)
         segments.append(f"Prerequisites: {prereq}")
 
     credits = course.get("credit_hours", "")
     if credits:
-       segments.append(f"Credit hours: {credits}")
+        segments.append(f"Credit hours: {credits}")
 
     # Each CLO statement with its associated PLO as its own segment
     clos = course.get("course_learning_outcomes", {})
     for category in ["knowledge", "skills", "values"]:
         for clo in clos.get(category, []):
             stmt = clo.get("clo_statement", "").strip()
-            
-            # Append associated PLO description if available
+
             if plos_map and stmt:
                 mapped_plos = clo.get("mapped_plos", [])
                 plo_descriptions = []
                 for plo_id in mapped_plos:
-                   if plo_id in plos_map:
-                       # include both id and description
-                       plo_descriptions.append(f"{plo_id}: {plos_map[plo_id]}")
+                    if plo_id in plos_map:
+                        plo_descriptions.append(f"{plo_id}: {plos_map[plo_id]}")
                 if plo_descriptions:
-                   stmt += " [Associated PLOs: " + " | ".join(plo_descriptions) + "]"
-                
-        if stmt:
-            segments.append(stmt)
+                    stmt += " [Associated PLOs: " + " | ".join(plo_descriptions) + "]"
+
+            # ← FIX: This must be INSIDE the inner `for clo` loop (8-space indent)
+            if stmt:
+                segments.append(stmt)
 
     return segments
+
+
 def get_project_segments(
     project: dict,
     acm_map: Dict[str, str],
@@ -215,32 +244,16 @@ def get_project_segments(
     rdia_map: Dict[str, str] = None,
 ) -> List[str]:
     """
-    Extract meaningful text segments from a project JSON.
-    Each segment is encoded separately (Late Fusion approach).
-
-    Segments:
-      1. title
-      2. abstract
-      3. keywords joined
-      4. problem statement + aim
-      5. objectives joined
-      6. results
-      7. future work
-      8. domain labels and descriptions (application + interest + rdia joined)
-     9. ACM descriptions (codes resolved to text)
-
-    Excludes: id, supervisor_name, supervisor_id, academic_year, semester, acm codes directly
+    Extract meaningful text segments from a project JSON (Late Fusion approach).
     """
     intro      = project.get("introduction", {})
     conclusion = project.get("conclusion", {})
     clf        = project.get("classification", {})
 
-    # Resolve ACM codes to human-readable text
-    acm_texts = [acm_map.get(code, "") for code in clf.get("acm", []) if acm_map.get(code)]
+    acm_texts = [acm_map[code] for code in clf.get("acm", []) if code in acm_map]
 
     segments = []
 
-    # Each major field as its own segment
     if project.get("title"):
         segments.append(project["title"])
 
@@ -250,8 +263,7 @@ def get_project_segments(
     keywords = project.get("keywords", [])
     if keywords:
         segments.append(" ".join(keywords))
-   
-    # problem and aim joined as one segment
+
     problem_aim = " ".join(filter(None, [intro.get("problem"), intro.get("aim")]))
     if problem_aim:
         segments.append(problem_aim)
@@ -266,28 +278,23 @@ def get_project_segments(
     if conclusion.get("future_work"):
         segments.append(conclusion["future_work"])
 
-    # Domain labels joined as one segment
-    # Domain maps are provided, enrich with descriptions.
     domain_parts = []
-
     for name in clf.get("interest", []):
-        domain_parts.append(f"{name}: {interest_map[name]}")
-        
-
+        if interest_map and name in interest_map:
+            domain_parts.append(f"{name}: {interest_map[name]}")
     for name in clf.get("application", []):
-        domain_parts.append(f"{name}: {app_map[name]}")
-        
-
+        if app_map and name in app_map:
+            domain_parts.append(f"{name}: {app_map[name]}")
     for name in clf.get("rdia", []):
-        domain_parts.append(f"{name}: {rdia_map[name]}")
-        
+        if rdia_map and name in rdia_map:
+            domain_parts.append(f"{name}: {rdia_map[name]}")
 
     if domain_parts:
         segments.append(" | ".join(domain_parts))
 
-    # ACM descriptions as one segment
     if acm_texts:
         segments.append(" ".join(acm_texts))
+
     return [s.strip() for s in segments if s.strip()]
 
 
@@ -326,9 +333,7 @@ def load_vector(path: str) -> np.ndarray:
 
 def encode_late_fusion_engine(model, segments: list) -> np.ndarray:
     """
-    Late Fusion encoding for use inside EmbeddingEngine at query time.
-    Encodes each text segment separately, then averages the vectors.
-    Prevents long-text dilution and improves retrieval accuracy
+    Late Fusion encoding: encode each segment separately, then average.
     """
     if not segments:
         raise ValueError("No segments provided.")
@@ -336,6 +341,6 @@ def encode_late_fusion_engine(model, segments: list) -> np.ndarray:
         segments,
         normalize_embeddings=True,
         batch_size=32,
-        show_progress_bar=False
+        show_progress_bar=False,
     )
     return normalize(average_vectors(list(vectors)))

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// frontend/src/components/Dashboard.tsx
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { User, Users, Lightbulb, LogOut, Home, FileText, TrendingUp, Settings, UserCheck } from 'lucide-react';
 import ProfilePage from './ProfilePage';
@@ -9,39 +10,108 @@ import TrendsPage from './TrendsPage';
 import DashboardHome from './DashboardHome';
 import RecommendationsPage from './RecommendationsPage';
 import GroupSettingsPage from './GroupSettingsPage';
+import api from '../services/api';
 
 interface DashboardProps {
   studentName: string;
   onLogout: () => void;
 }
 
-type Page = 'home' | 'profile' | 'group' | 'recommendations' | 'projects' | 'supervisors' | 'trends' | 'settings';
+type Page =
+  | 'home'
+  | 'profile'
+  | 'group'
+  | 'recommendations'
+  | 'projects'
+  | 'supervisors'
+  | 'trends'
+  | 'settings';
 
 export default function Dashboard({ studentName, onLogout }: DashboardProps) {
-  const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [currentPage, setCurrentPage]     = useState<Page>('home');
   const [groupFinalized, setGroupFinalized] = useState(false);
+  /**
+   * FIX (Bug): The original code always passed `isLeader={false}` to
+   * GroupSettingsPage, meaning the group leader could never access weight
+   * settings — the UI always showed the "only the leader can adjust" message.
+   *
+   * We now fetch the current user's ID on mount and compare it against the
+   * group's leader ID returned by GET /api/group to set isLeader correctly.
+   */
+  const [isLeader, setIsLeader]           = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const menuItems = [
-    { id: 'home' as Page, label: 'Home', icon: Home },
-    { id: 'profile' as Page, label: 'My Profile', icon: User },
-    { id: 'group' as Page, label: 'My Group', icon: Users },
-    { id: 'recommendations' as Page, label: 'Recommendations', icon: Lightbulb },
-    { id: 'projects' as Page, label: 'Similar Projects', icon: FileText },
-    { id: 'supervisors' as Page, label: 'Supervisors', icon: UserCheck },
-    { id: 'trends' as Page, label: 'Trends', icon: TrendingUp },
-    { id: 'settings' as Page, label: 'Group Settings', icon: Settings },
+  // Determine leader status whenever the group finalization state changes
+  useEffect(() => {
+    checkLeaderStatus();
+  }, [groupFinalized]);
+
+  const checkLeaderStatus = async () => {
+    try {
+      const [meRes, groupRes] = await Promise.all([
+        api.get('/auth/me'),
+        api.get('/group'),
+      ]);
+      if (groupRes.data.has_group) {
+        const currentUserId = meRes.data.id;
+        const leader = groupRes.data.group.members.find(
+          (m: any) => m.role === 'Leader'
+        );
+        // Compare as numbers (the API returns numeric IDs)
+        setIsLeader(leader?.id === currentUserId);
+      } else {
+        setIsLeader(false);
+      }
+    } catch {
+      setIsLeader(false);
+    }
+  };
+
+  const handleWeightsUpdated = () => {
+    // Increment trigger so RecommendationsPage re-fetches automatically
+    setRefreshTrigger((n) => n + 1);
+  };
+
+  const menuItems: { id: Page; label: string; icon: React.ElementType }[] = [
+    { id: 'home',            label: 'Home',             icon: Home        },
+    { id: 'profile',         label: 'My Profile',       icon: User        },
+    { id: 'group',           label: 'My Group',          icon: Users       },
+    { id: 'recommendations', label: 'Recommendations',  icon: Lightbulb   },
+    { id: 'projects',        label: 'Similar Projects',  icon: FileText    },
+    { id: 'supervisors',     label: 'Supervisors',       icon: UserCheck   },
+    { id: 'trends',          label: 'Trends',            icon: TrendingUp  },
+    { id: 'settings',        label: 'Group Settings',    icon: Settings    },
   ];
 
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <DashboardHome onNavigate={setCurrentPage} studentName={studentName} groupFinalized={groupFinalized} />;
+        return (
+          <DashboardHome
+            onNavigate={setCurrentPage}
+            studentName={studentName}
+            groupFinalized={groupFinalized}
+          />
+        );
       case 'profile':
         return <ProfilePage />;
       case 'group':
-        return <GroupPage onGroupFinalized={setGroupFinalized} groupFinalized={groupFinalized} />;
+        return (
+          <GroupPage
+            onGroupFinalized={(finalized) => {
+              setGroupFinalized(finalized);
+              checkLeaderStatus();
+            }}
+            groupFinalized={groupFinalized}
+          />
+        );
       case 'recommendations':
-        return <RecommendationsPage groupFinalized={groupFinalized} />;
+        return (
+          <RecommendationsPage
+            groupFinalized={groupFinalized}
+            refreshTrigger={refreshTrigger}
+          />
+        );
       case 'projects':
         return <SimilarProjectsPage groupFinalized={groupFinalized} />;
       case 'supervisors':
@@ -49,18 +119,21 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
       case 'trends':
         return <TrendsPage />;
       case 'settings':
-        return <GroupSettingsPage 
-          groupFinalized={groupFinalized} 
-          isLeader={false} 
-          onWeightsUpdated={() => {
-            // Refresh recommendations when weights are updated
-            if (currentPage === 'recommendations') {
-              // Force re-fetch will happen in RecommendationsPage
-            }
-          }}
-        />;
+        return (
+          <GroupSettingsPage
+            groupFinalized={groupFinalized}
+            isLeader={isLeader}           // ← FIX: was always false
+            onWeightsUpdated={handleWeightsUpdated}
+          />
+        );
       default:
-        return <DashboardHome onNavigate={setCurrentPage} studentName={studentName} groupFinalized={groupFinalized} />;
+        return (
+          <DashboardHome
+            onNavigate={setCurrentPage}
+            studentName={studentName}
+            groupFinalized={groupFinalized}
+          />
+        );
     }
   };
 
@@ -70,7 +143,6 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            {/* Logo */}
             <div className="w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
               <span className="text-2xl text-white font-bold">م</span>
             </div>
@@ -121,20 +193,6 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-10">
-          <div className="px-8 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl text-gray-900">
-                {menuItems.find(item => item.id === currentPage)?.label || 'Dashboard'}
-              </h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white shadow-md">
-                <User className="w-5 h-5" />
-              </div>
-            </div>
-          </div>
-        </div>
         {renderPage()}
       </main>
     </div>
