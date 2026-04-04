@@ -187,6 +187,7 @@ class ProjectRecommender:
             "rank":            rank,
             "project_id":      item["id"],
             "title":           meta.get("title", ""),
+            "abstract":        meta.get("abstract", ""),
             "supervisor_name": meta.get("supervisor_name", ""),
             "supervisor_id":   meta.get("supervisor_id", ""),
             "academic_year":   meta.get("academic_year", ""),

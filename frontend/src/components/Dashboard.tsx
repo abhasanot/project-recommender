@@ -98,7 +98,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
           />
         );
       case 'projects':
-        return <SimilarProjectsPage groupFinalized={groupFinalized} />;
+        return <SimilarProjectsPage />;
       case 'supervisors':
         return <SupervisorsPage groupFinalized={groupFinalized} />;
       case 'trends':
