@@ -10,7 +10,7 @@ export default function SupervisorsPage({ groupFinalized }: SupervisorsPageProps
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl text-gray-900 mb-2">Supervisor Recommendations (UR-F4)</h1>
+          <h1 className="text-3xl text-gray-900 mb-2">Supervisor Recommendations</h1>
           <p className="text-gray-600">Find the perfect supervisor based on your research interests</p>
         </div>
 
@@ -33,7 +33,7 @@ export default function SupervisorsPage({ groupFinalized }: SupervisorsPageProps
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl text-gray-900 mb-2">Supervisor Recommendations (UR-F4)</h1>
+        <h1 className="text-3xl text-gray-900 mb-2">Supervisor Recommendations</h1>
         <p className="text-gray-600">Find the perfect supervisor based on your research interests</p>
       </div>
 

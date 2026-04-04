@@ -437,18 +437,45 @@ def finalize_group():
 @app.route("/api/group/leave", methods=["POST"])
 @login_required
 def leave_group():
+    """
+    Allow any member to leave the group, even if finalized.
+    If the group becomes empty after leaving, delete it.
+    If the leader leaves a finalized group, the group remains finalized
+    but the leader role is transferred to another member.
+    """
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found"}), 404
-    if group["is_finalized"]:
-        return jsonify({"error": "Cannot leave a finalized group"}), 400
+    
+    # Allow leaving even if finalized
+    user_id = session["user_id"]
+    was_leader = (user_id == group["created_by"])
+    
+    # Remove user from members
+    group["members"].remove(user_id)
 
-    group["members"].remove(session["user_id"])
+    # If group becomes empty, delete it
     if len(group["members"]) == 0:
         db.delete_group(group["group_id"])
-    else:
+        return jsonify({"message": "Left group successfully (group was deleted)"}), 200
+    
+    # If leader left and group still has members, assign new leader
+    if was_leader and len(group["members"]) > 0:
+        # Assign the first remaining member as the new leader
+        new_leader_id = group["members"][0]
+        db.update_group_leader(group["group_id"], new_leader_id)
+
         db.update_group_members(group["group_id"], group["members"])
+    
     return jsonify({"message": "Left group successfully"}), 200
+
+
+    # group["members"].remove(session["user_id"])
+    # if len(group["members"]) == 0:
+    #     db.delete_group(group["group_id"])
+    # else:
+    #     db.update_group_members(group["group_id"], group["members"])
+    # return jsonify({"message": "Left group successfully"}), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════

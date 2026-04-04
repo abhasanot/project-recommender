@@ -10,7 +10,7 @@ export default function SimilarProjectsPage({ groupFinalized }: SimilarProjectsP
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl text-gray-900 mb-2">Similar Past Projects (UR-F3)</h1>
+          <h1 className="text-3xl text-gray-900 mb-2">Similar Past Projects</h1>
           <p className="text-gray-600">Explore past graduation projects that match your interests</p>
         </div>
 
@@ -33,7 +33,7 @@ export default function SimilarProjectsPage({ groupFinalized }: SimilarProjectsP
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl text-gray-900 mb-2">Similar Past Projects (UR-F3)</h1>
+        <h1 className="text-3xl text-gray-900 mb-2">Similar Past Projects</h1>
         <p className="text-gray-600">Explore past graduation projects that match your interests</p>
       </div>
 

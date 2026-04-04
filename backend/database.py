@@ -213,6 +213,15 @@ class Database:
         conn.execute("DELETE FROM groups WHERE group_id=?", (group_id,))
         conn.commit(); conn.close()
 
+    def update_group_leader(self, group_id: str, new_leader_id: int):
+        """Update the created_by field to assign a new leader."""
+        conn = self.get_connection()
+        conn.execute(
+            "UPDATE groups SET created_by = ? WHERE group_id = ?",
+            (new_leader_id, group_id))
+        conn.commit()
+        conn.close()  
+
     # ─────────────────── recommendations ─────────────────────────────────
 
     def save_group_recommendations(self, group_id: str, recommendations: dict):

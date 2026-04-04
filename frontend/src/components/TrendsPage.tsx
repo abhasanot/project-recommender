@@ -5,7 +5,7 @@ export default function TrendsPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl text-gray-900 mb-2">Research Trends Discovery (UR-F6)</h1>
+        <h1 className="text-3xl text-gray-900 mb-2">Research Trends Discovery</h1>
         <p className="text-gray-600">
           Explore rising trends in domains, methodologies, and tools
         </p>

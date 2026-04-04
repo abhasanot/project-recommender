@@ -306,7 +306,8 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                 <code className="bg-white px-2 py-0.5 rounded border text-indigo-700 font-mono text-xs">
                   {groupId}
                 </code>
-                <button onClick={copyGroupId} className="text-indigo-400 hover:text-indigo-600">
+                <button type="button" onClick={copyGroupId} className="text-indigo-400 hover:text-indigo-600" title="Copy group ID"
+                aria-label="Copy group ID">
                   <Copy className="w-3.5 h-3.5" />
                 </button>
               </CardDescription>
@@ -498,7 +499,8 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       {isFinalized && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="py-5">
-            <div className="flex items-center gap-3 text-green-700">
+            <div className="flex items-center justify-between">
+             <div className="flex items-center gap-3 text-green-700">
               <CheckCircle className="w-6 h-6 flex-shrink-0" />
               <div>
                 <p className="font-semibold">Group is Finalized</p>
@@ -507,6 +509,10 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                 </p>
               </div>
             </div>
+            <Button variant="outline" onClick={handleLeaveGroup} className="text-red-600 border-red-200 hover:bg-red-50">
+                <LogOut className="w-4 h-4 mr-2" /> Leave Group
+              </Button>
+             </div>
           </CardContent>
         </Card>
       )}
