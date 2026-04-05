@@ -104,8 +104,8 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
 
         
         .welcome-logo {
-          width: 400px;
-          height: 400px;
+          width: 380px;
+          height: 380px;
           object-fit: contain;
         }
 
