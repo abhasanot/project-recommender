@@ -8,6 +8,13 @@ Enforced system flow:
   3. Leader clicks "Finalize" → recommendations are generated
 
 Recommendations are NEVER generated unless ALL three conditions are met.
+
+Docker changes vs. original:
+  • CORS_ORIGINS env-var replaces the hard-coded localhost:3000 list so
+    nginx-proxied requests (Origin: http://localhost) are accepted.
+  • SESSION_FILE_DIR is read from the SESSION_DIR env-var so Flask-Session
+    stores files in the persistent Docker volume (/data/flask_session).
+  • GET /api/health added for Docker healthcheck / liveness probe.
 """
 
 from flask import Flask, request, jsonify, session
@@ -37,12 +44,26 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-i
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
-app.config["SESSION_FILE_DIR"] = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "flask_session"
-)
-os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
 
-CORS(app, origins=["http://localhost:3000", "http://localhost:5173"], supports_credentials=True)
+# SESSION_DIR env-var points to the Docker volume; fall back to local dir for
+# plain (non-Docker) development.
+_session_dir = os.environ.get(
+    "SESSION_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "flask_session"),
+)
+os.makedirs(_session_dir, exist_ok=True)
+app.config["SESSION_FILE_DIR"] = _session_dir
+
+# CORS_ORIGINS env-var lets docker-compose inject the correct origin list.
+# In Docker: nginx proxies /api → backend, browser Origin is http://localhost.
+# In dev:    Vite proxies /api → Flask, browser Origin is http://localhost:3000.
+_raw_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173",
+)
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+CORS(app, origins=_allowed_origins, supports_credentials=True)
+
 bcrypt = Bcrypt(app)
 Session(app)
 
@@ -75,7 +96,6 @@ def _is_profile_complete(user_id: int) -> bool:
     if not profile:
         return False
     has_courses  = len(profile.get("courses", [])) >= 1
-    # Verify every course entry actually has a non-empty grade
     grades_ok    = all(c.get("grade", "") for c in profile.get("courses", []))
     has_interest = len(profile.get("interests", [])) >= 1
     has_app      = len(profile.get("applications", [])) >= 1
@@ -84,15 +104,6 @@ def _is_profile_complete(user_id: int) -> bool:
 
 
 def _check_group_ready(group_id: str) -> dict:
-    """
-    Return a dict describing whether the group meets all pre-finalization conditions.
-    {
-      "all_profiles_complete": bool,
-      "weights_selected":      bool,
-      "member_statuses":       [{id, name, email, role, profile_complete}, ...],
-      "ready":                 bool,
-    }
-    """
     group = db.get_group(group_id)
     if not group:
         return {"ready": False, "error": "Group not found"}
@@ -113,10 +124,8 @@ def _check_group_ready(group_id: str) -> dict:
             "profile_complete": complete,
         })
 
-    weights = db.get_group_weights(group_id)
-    # weights_selected is True if the leader has explicitly saved a mode
-    # (the DB row will exist with any value once saved)
     weights_selected = db.has_group_weights(group_id)
+    weights = db.get_group_weights(group_id)
 
     return {
         "all_profiles_complete": all_complete,
@@ -178,6 +187,20 @@ def _generate_recommendations(group_id: str):
         print(f"[ERROR] Recommendation engine failed for {group_id}: {e}")
         import traceback; traceback.print_exc()
         return None
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# HEALTH CHECK  (used by Docker healthcheck and nginx upstream checks)
+# ═════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/health")
+def health():
+    """
+    Lightweight liveness probe.
+    Returns 200 once Flask (and the SBERT model) has fully started.
+    Docker compose waits for this before starting the frontend container.
+    """
+    return jsonify({"status": "ok", "service": "mueen-backend"}), 200
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -376,27 +399,15 @@ def get_group():
 @app.route("/api/group/readiness", methods=["GET"])
 @login_required
 def get_group_readiness():
-    """
-    Returns per-member profile completion status + weight status.
-    Used by the GroupPage to gate the Finalize button and display warnings.
-    """
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found"}), 404
-
-    status = _check_group_ready(group["group_id"])
-    return jsonify(status), 200
+    return jsonify(_check_group_ready(group["group_id"])), 200
 
 
 @app.route("/api/group/finalize", methods=["POST"])
 @login_required
 def finalize_group():
-    """
-    Finalize the group. Enforces ALL three conditions:
-      1. At least 2 members
-      2. All member profiles are complete
-      3. Leader has saved a weighting mode
-    """
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found"}), 404
@@ -423,63 +434,41 @@ def finalize_group():
 
     db.finalize_group(group["group_id"])
 
-    # Generate recommendations immediately
     recs = _generate_recommendations(group["group_id"])
     if recs:
         db.save_group_recommendations(group["group_id"], recs)
         return jsonify({"message": "Group finalized and recommendations generated",
                         "recommendations_ready": True}), 200
     else:
-        return jsonify({"message": "Group finalized but recommendation generation failed — try again from settings",
+        return jsonify({"message": "Group finalized but recommendation generation failed",
                         "recommendations_ready": False}), 200
 
 
 @app.route("/api/group/leave", methods=["POST"])
 @login_required
 def leave_group():
-    """
-    Allow any member to leave the group, even if finalized.
-    If the group becomes empty after leaving, delete it.
-    If the leader leaves a finalized group, the group remains finalized
-    but the leader role is transferred to another member.
-    """
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found"}), 404
-    
-    # Allow leaving even if finalized
-    user_id = session["user_id"]
+
+    user_id    = session["user_id"]
     was_leader = (user_id == group["created_by"])
-    
-    # Remove user from members
     group["members"].remove(user_id)
 
-    # If group becomes empty, delete it
     if len(group["members"]) == 0:
         db.delete_group(group["group_id"])
         return jsonify({"message": "Left group successfully (group was deleted)"}), 200
-    
-    # If leader left and group still has members, assign new leader
-    if was_leader and len(group["members"]) > 0:
-        # Assign the first remaining member as the new leader
+
+    if was_leader:
         new_leader_id = group["members"][0]
         db.update_group_leader(group["group_id"], new_leader_id)
 
-        db.update_group_members(group["group_id"], group["members"])
-    
+    db.update_group_members(group["group_id"], group["members"])
     return jsonify({"message": "Left group successfully"}), 200
 
 
-    # group["members"].remove(session["user_id"])
-    # if len(group["members"]) == 0:
-    #     db.delete_group(group["group_id"])
-    # else:
-    #     db.update_group_members(group["group_id"], group["members"])
-    # return jsonify({"message": "Left group successfully"}), 200
-
-
 # ═════════════════════════════════════════════════════════════════════════════
-# GROUP WEIGHTS  (can be set BEFORE or AFTER finalization)
+# GROUP WEIGHTS
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/group/weights", methods=["GET"])
@@ -501,11 +490,6 @@ def get_group_weights():
 @app.route("/api/group/weights", methods=["PUT"])
 @login_required
 def update_group_weights():
-    """
-    The leader saves the weighting mode.
-    This is allowed both BEFORE finalization (to gate the Finalize button)
-    and AFTER finalization (to regenerate recommendations).
-    """
     data  = request.json or {}
     group = db.get_user_group(session["user_id"])
     if not group:
@@ -526,7 +510,6 @@ def update_group_weights():
         "weighting_mode": mode, "competency_weight": cw, "interests_weight": iw,
     })
 
-    # If already finalized → regenerate recommendations with new weights
     if group["is_finalized"]:
         recs = _generate_recommendations(group["group_id"])
         if recs:
@@ -547,20 +530,12 @@ def update_group_weights():
 @app.route("/api/recommendations", methods=["GET"])
 @login_required
 def get_recommendations():
-    """
-    Returns recommendations only when ALL conditions are met:
-      1. User is in a finalized group
-      2. All member profiles are complete
-      3. Leader has saved weights
-    Otherwise returns a structured error describing what is missing.
-    """
     group = db.get_user_group(session["user_id"])
     if not group:
         return jsonify({"error": "No group found", "condition": "no_group"}), 404
     if not group["is_finalized"]:
         return jsonify({"error": "Group not finalized yet", "condition": "not_finalized"}), 400
 
-    # Double-check conditions even after finalization (data could have changed)
     status = _check_group_ready(group["group_id"])
     if not status["all_profiles_complete"]:
         return jsonify({"error": "Some member profiles are incomplete",
@@ -578,7 +553,7 @@ def get_recommendations():
             db.save_group_recommendations(group["group_id"], recs)
 
     if not recs:
-        return jsonify({"error": "Unable to generate recommendations — ensure embeddings are built"}), 500
+        return jsonify({"error": "Unable to generate recommendations"}), 500
 
     return jsonify({
         "group_id":      recs.get("group_id", group["group_id"]),
@@ -591,7 +566,7 @@ def get_recommendations():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# DOMAIN DATA  (for dropdowns)
+# DOMAIN DATA
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/domains", methods=["GET"])
@@ -616,7 +591,7 @@ def get_domains():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PROJECTS / SUPERVISORS / TRENDS  (read-only data endpoints)
+# PROJECTS / SUPERVISORS / TRENDS
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/projects", methods=["GET"])
@@ -634,7 +609,7 @@ def get_projects():
             "rdia_priority": p.get("rdia", []), "keywords": p.get("keywords", []),
         } for pid, p in projects.items()]), 200
     except FileNotFoundError:
-        return jsonify({"message": "Projects data not available yet. Run phase2_embed.py first.", "projects": []}), 200
+        return jsonify({"message": "Projects data not available yet.", "projects": []}), 200
 
 
 @app.route("/api/supervisors", methods=["GET"])
@@ -660,18 +635,15 @@ def get_supervisors():
         return jsonify([]), 200
 
 
-@app.route("/api/trends/domains", methods=["GET"])
-def get_domain_trends():
-    return jsonify({"message": "Coming soon", "data": []}), 200
+@app.route("/api/trends/domains",       methods=["GET"])
+def get_domain_trends():      return jsonify({"message": "Coming soon", "data": []}), 200
 
 @app.route("/api/trends/methodologies", methods=["GET"])
-def get_methodology_trends():
-    return jsonify({"message": "Coming soon", "data": []}), 200
+def get_methodology_trends(): return jsonify({"message": "Coming soon", "data": []}), 200
 
-@app.route("/api/trends/tools", methods=["GET"])
-def get_tool_trends():
-    return jsonify({"message": "Coming soon", "data": []}), 200
+@app.route("/api/trends/tools",         methods=["GET"])
+def get_tool_trends():        return jsonify({"message": "Coming soon", "data": []}), 200
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=False)

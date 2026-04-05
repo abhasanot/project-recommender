@@ -1,11 +1,31 @@
 # backend/database.py
+"""
+Database layer for Mu'een.
+
+Docker change vs. original:
+  DB_PATH is now read from the DB_PATH environment variable.
+  In Docker, docker-compose sets:
+      DB_PATH=/data/recommendation.db
+  where /data is a named Docker volume, so the database survives
+  `docker compose down / up` cycles.
+
+  In plain development (no env-var set), behaviour is unchanged:
+  the DB lives next to this file inside backend/.
+"""
 
 import sqlite3
 import json
 from typing import Dict, List, Optional
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "recommendation.db")
+# DB_PATH: prefer env-var (Docker) → fall back to sibling file (local dev)
+DB_PATH = os.environ.get(
+    "DB_PATH",
+    os.path.join(os.path.dirname(__file__), "recommendation.db"),
+)
+
+# Ensure the parent directory exists (needed when using a Docker volume path)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
 class Database:
@@ -89,7 +109,7 @@ class Database:
         conn.commit()
         conn.close()
 
-    # ─────────────────── helpers ───────────────────────────────────────────
+    # ─────────────────── helpers ──────────────────────────────────────────────
 
     def _safe_json(self, value, default=None):
         if value is None:
@@ -99,7 +119,7 @@ class Database:
         except Exception:
             return default if default is not None else []
 
-    # ─────────────────── users ────────────────────────────────────────────
+    # ─────────────────── users ────────────────────────────────────────────────
 
     def create_user(self, user) -> int:
         conn   = self.get_connection()
@@ -126,7 +146,7 @@ class Database:
         conn.close()
         return dict(row) if row else None
 
-    # ─────────────────── profiles ─────────────────────────────────────────
+    # ─────────────────── profiles ─────────────────────────────────────────────
 
     def save_profile(self, profile):
         conn = self.get_connection()
@@ -161,7 +181,7 @@ class Database:
         d["applications"]      = self._safe_json(d.get("applications"))
         return d
 
-    # ─────────────────── groups ───────────────────────────────────────────
+    # ─────────────────── groups ───────────────────────────────────────────────
 
     def create_group(self, group):
         conn = self.get_connection()
@@ -183,7 +203,7 @@ class Database:
         return d
 
     def get_user_group(self, user_id: int) -> Optional[Dict]:
-        """Return the first group whose members list contains user_id."""
+        """Return the most-recent group whose members list contains user_id."""
         conn = self.get_connection()
         rows = conn.execute("SELECT * FROM groups ORDER BY created_at DESC").fetchall()
         conn.close()
@@ -201,6 +221,13 @@ class Database:
                      (json.dumps(members), group_id))
         conn.commit(); conn.close()
 
+    def update_group_leader(self, group_id: str, new_leader_id: int):
+        """Reassign the created_by field when the leader leaves."""
+        conn = self.get_connection()
+        conn.execute("UPDATE groups SET created_by=? WHERE group_id=?",
+                     (new_leader_id, group_id))
+        conn.commit(); conn.close()
+
     def finalize_group(self, group_id: str):
         conn = self.get_connection()
         conn.execute("UPDATE groups SET is_finalized=1 WHERE group_id=?", (group_id,))
@@ -213,16 +240,7 @@ class Database:
         conn.execute("DELETE FROM groups WHERE group_id=?", (group_id,))
         conn.commit(); conn.close()
 
-    def update_group_leader(self, group_id: str, new_leader_id: int):
-        """Update the created_by field to assign a new leader."""
-        conn = self.get_connection()
-        conn.execute(
-            "UPDATE groups SET created_by = ? WHERE group_id = ?",
-            (new_leader_id, group_id))
-        conn.commit()
-        conn.close()  
-
-    # ─────────────────── recommendations ─────────────────────────────────
+    # ─────────────────── recommendations ─────────────────────────────────────
 
     def save_group_recommendations(self, group_id: str, recommendations: dict):
         conn = self.get_connection()
@@ -242,7 +260,7 @@ class Database:
             return self._safe_json(row["recommendations"], default=None)
         return None
 
-    # ─────────────────── weights ──────────────────────────────────────────
+    # ─────────────────── weights ──────────────────────────────────────────────
 
     def save_group_weights(self, group_id: str, weights: dict):
         conn = self.get_connection()
@@ -258,7 +276,7 @@ class Database:
         conn.commit(); conn.close()
 
     def has_group_weights(self, group_id: str) -> bool:
-        """True if the leader has explicitly saved a weighting mode for this group."""
+        """True only if the leader has explicitly saved a weighting mode."""
         conn = self.get_connection()
         row  = conn.execute(
             "SELECT id FROM group_weights WHERE group_id=?", (group_id,)

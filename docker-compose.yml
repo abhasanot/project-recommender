@@ -1,0 +1,115 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml
+#
+# Run the entire Mu'een system with one command:
+#
+#   docker compose up --build        # first run (builds images)
+#   docker compose up                # subsequent runs (reuses images)
+#   docker compose down              # stop everything
+#   docker compose down -v           # stop and delete all data volumes
+#
+# Architecture:
+#
+#   ┌─────────────────────────────────────────────┐
+#   │              Your Browser                   │
+#   └────────────────────┬────────────────────────┘
+#                        │ port 80
+#   ┌────────────────────▼────────────────────────┐
+#   │          frontend (nginx)                   │
+#   │  • Serves React SPA static files            │
+#   │  • Proxies /api/* → backend:5000            │
+#   └────────────────────┬────────────────────────┘
+#                        │ internal Docker network
+#   ┌────────────────────▼────────────────────────┐
+#   │          backend (Flask / gunicorn)         │
+#   │  • Recommendation API                       │
+#   │  • SBERT model (pre-loaded)                 │
+#   │  • SQLite database                          │
+#   └─────────────────────────────────────────────┘
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: mueen-backend
+    restart: unless-stopped
+
+    environment:
+      # Change SECRET_KEY in production (or set it in a .env file)
+      SECRET_KEY: ${SECRET_KEY:-mueen-dev-secret-key-please-change-me}
+
+      # Persistent paths — map to the mueen_data volume below
+      DB_PATH:     /data/recommendation.db
+      SESSION_DIR: /data/flask_session
+
+      # CORS: allow requests from the nginx frontend (same origin via proxy,
+      # but Flask still validates the Origin header sent by the browser)
+      CORS_ORIGINS: "http://localhost,http://localhost:80,http://127.0.0.1,http://127.0.0.1:80"
+
+      # Keep HuggingFace model cache inside the container image
+      HF_HOME: /app/.hf_cache
+      TRANSFORMERS_CACHE: /app/.hf_cache
+
+    volumes:
+      # Persist the SQLite database and Flask sessions across restarts
+      - mueen_data:/data
+
+    # Backend is NOT exposed to the host directly — only reachable via nginx
+    expose:
+      - "5000"
+
+    networks:
+      - mueen-net
+
+    healthcheck:
+      # Flask must respond to /api/health before the frontend starts
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval:     20s
+      timeout:      10s
+      retries:      10
+      # Allow up to 3 minutes for the SBERT model to finish loading on cold start
+      start_period: 180s
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: mueen-frontend
+    restart: unless-stopped
+
+    ports:
+      # The only externally exposed port — open your browser at http://localhost
+      - "${PORT:-80}:80"
+
+    networks:
+      - mueen-net
+
+    depends_on:
+      backend:
+        condition: service_healthy   # wait until Flask is ready
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/nginx-health"]
+      interval: 15s
+      timeout:   5s
+      retries:   3
+
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  mueen_data:
+    name: mueen_data
+    # SQLite DB + session files persist here across `docker compose down/up`
+
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  mueen-net:
+    name:   mueen-net
+    driver: bridge
