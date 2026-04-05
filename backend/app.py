@@ -444,6 +444,33 @@ def finalize_group():
                         "recommendations_ready": False}), 200
 
 
+@app.route("/api/group/unfinalize", methods=["POST"])
+@login_required
+def unfinalize_group():
+    """Allow leader to unfinalize a group so members can rejoin."""
+    group = db.get_user_group(session["user_id"])
+    if not group:
+        return jsonify({"error": "No group found"}), 404
+    
+    if session["user_id"] != group["created_by"]:
+        return jsonify({"error": "Only the group leader can unfinalize"}), 403
+    
+    if not group["is_finalized"]:
+        return jsonify({"error": "Group is not finalized"}), 400
+    
+    # Unfinalize the group
+    db.unfinalize_group(group["group_id"])
+    
+    return jsonify({
+        "message": "Group unfinalized successfully. Members can now rejoin.",
+        "group": {
+            "id": group["group_id"],
+            "name": group["group_name"],
+            "is_finalized": False,
+        }
+    }), 200
+
+
 @app.route("/api/group/leave", methods=["POST"])
 @login_required
 def leave_group():

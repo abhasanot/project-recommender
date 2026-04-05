@@ -12,7 +12,7 @@ import {
 } from './ui/tabs';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import {
-  Users, Plus, Copy, CheckCircle, Lock, LogOut,
+  Users, Plus, Copy, CheckCircle, Lock, Unlock, LogOut,
   AlertCircle, Scale, TrendingUp, User, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -53,6 +53,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
   const [currentUserId,setCurrentUserId]= useState<string | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [finalizing,   setFinalizing]   = useState(false);
+  const [unfinalizing, setUnfinalizing] = useState(false);  // ✅ NEW
 
   // Readiness (profile completion + weights)
   const [readiness,    setReadiness]    = useState<ReadinessState | null>(null);
@@ -186,6 +187,32 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
         toast.error(detail?.error ?? 'Failed to finalize group');
       }
     } finally { setFinalizing(false); }
+  };
+
+  // ✅ NEW: Handle unfinalize action
+  const handleUnfinalize = async () => {
+    if (!confirm(
+      '⚠️ WARNING: Unfinalizing the group will:\n\n' +
+      '• Allow new members to join\n' +
+      '• Require re-finalization to generate new recommendations\n' +
+      '• Keep existing recommendations but they will be outdated\n\n' +
+      'Are you sure you want to unfinalize?'
+    )) return;
+    
+    setUnfinalizing(true);
+    try {
+      const res = await api.post('/group/unfinalize');
+      setIsFinalized(false);
+      onGroupFinalized(false);
+      toast.success(res.data.message);
+      // Refresh group data and readiness
+      await fetchGroup();
+      await fetchReadiness();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error ?? 'Failed to unfinalize group');
+    } finally {
+      setUnfinalizing(false);
+    }
   };
 
   const handleLeaveGroup = async () => {
@@ -499,20 +526,34 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       {isFinalized && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="py-5">
-            <div className="flex items-center justify-between">
-             <div className="flex items-center gap-3 text-green-700">
-              <CheckCircle className="w-6 h-6 flex-shrink-0" />
-              <div>
-                <p className="font-semibold">Group is Finalized</p>
-                <p className="text-sm text-green-600 mt-0.5">
-                  Recommendations have been generated. Go to the Recommendations page to view them.
-                </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3 text-green-700">
+                <CheckCircle className="w-6 h-6 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold">Group is Finalized</p>
+                  <p className="text-sm text-green-600 mt-0.5">
+                    Recommendations have been generated. Go to the Recommendations page to view them.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {/* ✅ NEW: Unfinalize button - only visible to leader */}
+                {isLeader && (
+                  <Button
+                    variant="outline"
+                    onClick={handleUnfinalize}
+                    disabled={unfinalizing}
+                    className="text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                  >
+                    {unfinalizing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Unlock className="w-4 h-4 mr-2" />}
+                    {unfinalizing ? 'Unfinalizing...' : 'Unfinalize Group'}
+                  </Button>
+                )}
+                <Button variant="outline" onClick={handleLeaveGroup} className="text-red-600 border-red-200 hover:bg-red-50">
+                  <LogOut className="w-4 h-4 mr-2" /> Leave Group
+                </Button>
               </div>
             </div>
-            <Button variant="outline" onClick={handleLeaveGroup} className="text-red-600 border-red-200 hover:bg-red-50">
-                <LogOut className="w-4 h-4 mr-2" /> Leave Group
-              </Button>
-             </div>
           </CardContent>
         </Card>
       )}

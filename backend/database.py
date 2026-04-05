@@ -240,6 +240,13 @@ class Database:
         conn.execute("DELETE FROM groups WHERE group_id=?", (group_id,))
         conn.commit(); conn.close()
 
+    def unfinalize_group(self, group_id: str):
+        """Remove finalization flag from a group so members can join again."""
+        conn = self.get_connection()
+        conn.execute("UPDATE groups SET is_finalized=0 WHERE group_id=?", (group_id,))
+        conn.commit()
+        conn.close()    
+
     # ─────────────────── recommendations ─────────────────────────────────────
 
     def save_group_recommendations(self, group_id: str, recommendations: dict):
