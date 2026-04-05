@@ -9,7 +9,7 @@ import { Progress } from './ui/progress';
 import {
   FileText, Loader2, User, Calendar, Target,
   BookOpen, Sparkles, AlertCircle, Lightbulb,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, TrendingUp,
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -18,6 +18,7 @@ interface Project {
   project_id: string;
   title: string;
   abstract: string;
+  future_work?: string;
   supervisor_name: string;
   academic_year: string;
   semester: string;
@@ -49,6 +50,7 @@ export default function SimilarProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedAbstract, setExpandedAbstract] = useState<string | null>(null);
+  const [expandedFutureWork, setExpandedFutureWork] = useState<string | null>(null);
   const [expandedKeywords, setExpandedKeywords] = useState<string | null>(null);
 
   useEffect(() => {
@@ -193,6 +195,7 @@ export default function SimilarProjectsPage() {
         {data.projects.map((project) => {
           const isKeywordsExpanded = expandedKeywords === project.project_id;
           const isAbstractExpanded = expandedAbstract === project.project_id;
+          const isFutureWorkExpanded = expandedFutureWork === project.project_id;
           const displayKeywords = isKeywordsExpanded ? project.keywords : project.keywords?.slice(0, 5);
           const hasMoreKeywords = project.keywords && project.keywords.length > 5;
           const abstractText = project.abstract || '';
@@ -201,6 +204,11 @@ export default function SimilarProjectsPage() {
             ? abstractText 
             : abstractText.substring(0, 250) + '...';
 
+          const futureWorkText = project.future_work || '';
+          const shouldTruncateFutureWork = futureWorkText.length > 250;
+          const displayFutureWork = isFutureWorkExpanded || !shouldTruncateFutureWork 
+            ? futureWorkText 
+            : futureWorkText.substring(0, 250) + '...';
           return (
             <Card key={project.project_id} className="hover:shadow-lg transition-shadow overflow-hidden">
               {/* Header */}
@@ -253,7 +261,25 @@ export default function SimilarProjectsPage() {
                     )}
                   </div>
                 )}
-
+                {/* Future Work - NEW SECTION */}
+                {futureWorkText && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
+                      <TrendingUp className="w-4 h-4" /> Future Work
+                    </h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">{displayFutureWork}</p>
+                    {shouldTruncateFutureWork && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedFutureWork(isFutureWorkExpanded ? null : project.project_id)}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 p-0 h-auto mt-1"
+                      >
+                        {isFutureWorkExpanded ? 'show less' : 'more...'}
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {/* Domains */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {project.interest && project.interest.length > 0 && (
