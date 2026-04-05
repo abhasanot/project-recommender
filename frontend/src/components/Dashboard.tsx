@@ -98,7 +98,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
           />
         );
       case 'projects':
-        return <SimilarProjectsPage groupFinalized={groupFinalized} />;
+        return <SimilarProjectsPage />;
       case 'supervisors':
         return <SupervisorsPage groupFinalized={groupFinalized} />;
       case 'trends':
@@ -128,8 +128,24 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-2xl text-white font-bold">م</span>
+            {/* Logo */}
+            <div className="w-40 h-40 rounded-xl flex items-center justify-center overflow-hidden">
+              <img 
+                src="/logo.png" 
+                alt="Mu'een Logo" 
+                className="w-40 h-40 object-contain"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    const fallback = document.createElement('span');
+                    fallback.className = 'text-2xl text-white font-bold';
+                    fallback.textContent = 'م';
+                    parent.appendChild(fallback);
+                  }
+                }}
+              />
             </div>
             <div>
               <h1 className="text-xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">

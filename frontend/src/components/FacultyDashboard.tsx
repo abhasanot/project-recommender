@@ -11,7 +11,7 @@ interface FacultyDashboardProps {
   onLogout: () => void;
 }
 
-// بيانات تجريبية - سيتم استبدالها بـ API حقيقي لاحقاً
+// Demo data - will be replaced with real API later
 const applicationBySemesterData = [
   { semester: '1st Semester', Healthcare: 22, Education: 18, Business: 16, Security: 14, Environment: 10, Other: 8 },
   { semester: '2nd Semester', Healthcare: 23, Education: 19, Business: 17, Security: 14, Environment: 11, Other: 9 },
@@ -55,8 +55,23 @@ export default function FacultyDashboard({ facultyName, onLogout }: FacultyDashb
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             {/* Logo */}
-            <div className="w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-2xl text-white font-bold">م</span>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden">
+              <img 
+                src="/logo.png" 
+                alt="Mu'een Logo" 
+                className="w-10 h-10 object-contain"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    const fallback = document.createElement('span');
+                    fallback.className = 'text-2xl text-white font-bold';
+                    fallback.textContent = 'م';
+                    parent.appendChild(fallback);
+                  }
+                }}
+              />
             </div>
             <div>
               <h1 className="text-xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">

@@ -79,10 +79,26 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-100 px-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-4 text-center pb-6">
-          {/* Logo - أيقونة بدلاً من الصورة */}
-          <div className="mx-auto w-20 h-20 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <span className="text-4xl text-white font-bold">م</span>
-          </div>
+
+
+          <div className="mx-auto w-40 h-40 rounded-xl flex items-center justify-center overflow-hidden">
+  <img 
+    src="/logo.png" 
+    alt="Mu'een Logo" 
+    className="w-100 h-100 object-contain"
+    onError={(e) => {
+      const target = e.currentTarget;
+      target.style.display = 'none';
+      const parent = target.parentElement;
+      if (parent) {
+        const fallback = document.createElement('span');
+        fallback.className = 'text-4xl text-white font-bold';
+        fallback.textContent = 'م';
+        parent.appendChild(fallback);
+      }
+    }}
+  />
+</div>
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               Mu'een
