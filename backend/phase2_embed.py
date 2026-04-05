@@ -52,7 +52,8 @@ from utils import (
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # PATHS
-DATA_DIR         = os.path.join(PROJECT_ROOT, "data")
+# DATA_DIR         = os.path.join(PROJECT_ROOT, "data")
+DATA_DIR = os.path.join(os.path.dirname(PROJECT_ROOT), "data")
 PROJECTS_DIR     = os.path.join(DATA_DIR, "projects")
 COURSES_PATH     = os.path.join(DATA_DIR, "courses.json")
 ACM_PATH         = os.path.join(DATA_DIR, "ACM_CSS_taxonomy.json")

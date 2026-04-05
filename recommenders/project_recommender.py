@@ -192,6 +192,7 @@ class ProjectRecommender:
             "supervisor_id":   meta.get("supervisor_id", ""),
             "academic_year":   meta.get("academic_year", ""),
             "keywords":        meta.get("keywords", []),
+            "future_work":     meta.get("future_work", ""),
             "application":     meta.get("application", []),
             "interest":        meta.get("interest", []),
             "rdia":            meta.get("rdia", []),
