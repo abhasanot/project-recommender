@@ -220,8 +220,7 @@ def signup():
     hashed = bcrypt.generate_password_hash(data["password"]).decode("utf-8")
     user = User(
         email=data["email"], password_hash=hashed, name=data["name"],
-        user_type=data["user_type"], student_id=data.get("student_id", ""),
-        academic_year=data.get("academic_year", ""), major=data.get("major", "Computer Science"),
+        user_type=data["user_type"],
     )
     user_id = db.create_user(user)
     session.update({"user_id": user_id, "user_email": user.email,
@@ -262,8 +261,7 @@ def get_current_user():
         return jsonify({"error": "User not found"}), 404
     return jsonify({
         "id": user["id"], "email": user["email"], "name": user["name"],
-        "user_type": user["user_type"], "student_id": user.get("student_id", ""),
-        "academic_year": user.get("academic_year", ""), "major": user.get("major", ""),
+        "user_type": user["user_type"],
     }), 200
 
 
@@ -287,7 +285,6 @@ def save_profile():
 
     profile = StudentProfile(
         user_id=session["user_id"],
-        required_courses=data.get("required_courses", []),
         elective_courses=data.get("elective_courses", []),
         courses=data.get("courses", []),
         interests=data.get("interests", []),
@@ -306,7 +303,7 @@ def get_profile():
     profile = db.get_profile(session["user_id"])
     if not profile:
         return jsonify({
-            "required_courses": [], "elective_courses": [], "courses": [],
+            "elective_courses": [], "courses": [],
             "interests": [], "applications": [], "rdia": "", "weighting_mode": "balanced",
         }), 200
     profile["complete"] = _is_profile_complete(session["user_id"])
