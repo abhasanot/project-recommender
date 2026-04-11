@@ -3,7 +3,7 @@
     "title": "Dolphin Application ",
     "supervisor_name": " Eman AbdulHamid Alzaid ",
     "supervisor_id": "EAza",
-    "academic_year": "42",
+    "academic_year": "1442",
     "semester": "10",
     "abstract": "With the widespread use of smartphones, the number of videos has increased significantly in the last years. This poses challenges to the management of these video data and especially to the retrieval of a specific video. This project aims to develop a mobile application Dolphin to manage and retrieve videos easily. Machine learning techniques will be used to organize and index the videos efficiently.",
     "keywords": [

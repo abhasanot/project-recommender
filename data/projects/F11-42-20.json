@@ -3,7 +3,7 @@
     "title": "Energy-Efficient Data Reduction Techniques for Sensor-based ECG Monitoring Applications",
     "supervisor_name": " Manan Mohammed Almusallam",
     "supervisor_id": "MMmu",
-    "academic_year": "42",
+    "academic_year": "1442",
     "semester": "20",
     "abstract": "Recently, deaths of people suffering from heart disease have increased. To save their lives and their health, an Internet of Things (IoT) trending technology provides an appropriate care to the patient. This technology known as remote heart monitoring that uses Wireless Body Sensor Network (WBSN) to provide real-time monitoring. On this project, we interested on detecting Arrhythmias, specifically the types that can be discovered by Heart Rate (HR) such as Bradycardia and Tachycardia. Wireless sensors are attached to human body to capture and transmit ECG signals to remote server. However, the size of data transmitted wirelessly from the sensor consumes a large portion of the sensors battery. To address this problem. We use data reduction techniques (ECG compression and feature extraction) to decrease the consumption by reducing the amount of transmitted data. Our goal in this project is to study and evaluate the effect of the data reduction techniques on sensors battery and maintain the level of efficiency. We design two algorithms one for each technique, the feature extraction algorithm achieved SE and P+ with an average of 95.48% and 100% respectively. However, compression algorithm achieved CR and average PRD with 75% and 45.11% respectively. We conclude our study by choosing the compression algorithm to be more suitable to be implemented on sensors.",
     "keywords": [
