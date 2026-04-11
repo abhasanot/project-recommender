@@ -163,7 +163,7 @@ export default function SimilarProjectsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="font-medium text-gray-600 mb-1.5">Research Interests</p>
+              <p className="font-medium text-gray-600 mb-1.5">Domain Interests</p>
               <div className="flex flex-wrap gap-1">
                 {data.group_profile.selected_interests.map(i => (
                   <Badge key={i} variant="secondary" className="text-xs">{i}</Badge>

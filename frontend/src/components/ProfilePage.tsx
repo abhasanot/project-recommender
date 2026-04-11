@@ -154,7 +154,7 @@ export default function ProfilePage() {
       toast.error(`Please select a grade for "${missing.course_title}"`); return;
     }
     if (interests.length === 0) {
-      toast.error('Please select at least one research interest'); return;
+      toast.error('Please select at least one domain interest'); return;
     }
     if (apps.length === 0) {
       toast.error('Please select at least one application domain'); return;
@@ -184,7 +184,7 @@ export default function ProfilePage() {
   const gradesOk  = courses.length > 0 && courses.every(c => c.grade.trim());
   const steps = {
     'Courses & Grades':       gradesOk,
-    'Research Interests':     interests.length >= 1,
+    'Domain Interests':     interests.length >= 1,
     'Application Domains':    apps.length >= 1,
     'RDIA National Priority': rdia.trim() !== '',
   };
@@ -341,11 +341,11 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* ── Research Interests ───────────────────────────────────────── */}
+          {/* ── Domain Interests ───────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                Research Interests
+                Domain Interests
                 <Badge variant="outline" className="text-xs font-normal">max 3</Badge>
                 {interests.length >= 1 && <CheckCircle className="w-4 h-4 text-green-500" />}
               </CardTitle>

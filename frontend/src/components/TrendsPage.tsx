@@ -89,7 +89,7 @@ interface ActiveFilters {
 
 // ── Dimension options ─────────────────────────────────────────────────────────
 const DIMENSIONS = [
-  { value: 'interest',    label: 'Research Interest' },
+  { value: 'interest',    label: 'Domain Interest' },
   { value: 'application', label: 'Application Domain' },
   { value: 'rdia',        label: 'RDIA Priority' },
   { value: 'year',        label: 'Academic Year' },
@@ -316,7 +316,7 @@ export default function TrendsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <TrendingUp className="w-6 h-6 text-violet-600" />
-          Research Trends Analysis
+          Domain Trends Analysis
         </h1>
         <p className="text-gray-500 text-sm mt-1">
           Explore frequency, growth, and distribution of graduation project trends

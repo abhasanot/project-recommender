@@ -172,7 +172,7 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="font-medium text-gray-600 mb-1.5">Research Interests</p>
+              <p className="font-medium text-gray-600 mb-1.5">Domain Interests</p>
               <div className="flex flex-wrap gap-1">
                 {data.group_profile.selected_interests.map(i =>
                   <Badge key={i} variant="secondary" className="text-xs">{i}</Badge>)}
@@ -246,7 +246,7 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
       </section>
 
       {/* Interests */}
-      <RecommendSection title="Recommended Research Interests" icon={<Sparkles className="w-5 h-5 text-purple-600" />}>
+      <RecommendSection title="Recommended Domain Interests" icon={<Sparkles className="w-5 h-5 text-purple-600" />}>
         {data.interests.map(item => (
           <DomainCard key={item.name} name={item.name} desc={item.description}
             score={item.combined_score} selected={item.already_selected}

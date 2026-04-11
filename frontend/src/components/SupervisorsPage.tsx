@@ -11,7 +11,7 @@ export default function SupervisorsPage({ groupFinalized }: SupervisorsPageProps
       <div className="p-8 max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl text-gray-900 mb-2">Supervisor Recommendations</h1>
-          <p className="text-gray-600">Find the perfect supervisor based on your research interests</p>
+          <p className="text-gray-600">Find the perfect supervisor based on your interests</p>
         </div>
 
         <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50">
@@ -34,7 +34,7 @@ export default function SupervisorsPage({ groupFinalized }: SupervisorsPageProps
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl text-gray-900 mb-2">Supervisor Recommendations</h1>
-        <p className="text-gray-600">Find the perfect supervisor based on your research interests</p>
+        <p className="text-gray-600">Find the perfect supervisor based on your interests</p>
       </div>
 
       <Card>
