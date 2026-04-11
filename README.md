@@ -9,3 +9,8 @@ Terminal2:
 cd frontend
 npm install
 npm run dev
+
+
+
+for venv
+venv\Scripts\activate

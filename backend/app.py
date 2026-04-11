@@ -32,6 +32,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from recommender_system import RecommenderSystem
 from database import Database
 from models import User, GroupData, StudentProfile
+from trend import trend_bp          # Trend Analysis Blueprint
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -66,6 +67,7 @@ CORS(app, origins=_allowed_origins, supports_credentials=True)
 
 bcrypt = Bcrypt(app)
 Session(app)
+app.register_blueprint(trend_bp, url_prefix="/api/trends")  # Mount trend routes
 
 db = Database()
 recommender_system = RecommenderSystem()
@@ -659,14 +661,8 @@ def get_supervisors():
         return jsonify([]), 200
 
 
-@app.route("/api/trends/domains",       methods=["GET"])
-def get_domain_trends():      return jsonify({"message": "Coming soon", "data": []}), 200
 
-@app.route("/api/trends/methodologies", methods=["GET"])
-def get_methodology_trends(): return jsonify({"message": "Coming soon", "data": []}), 200
 
-@app.route("/api/trends/tools",         methods=["GET"])
-def get_tool_trends():        return jsonify({"message": "Coming soon", "data": []}), 200
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import FacultyDashboard from './components/FacultyDashboard';
 import { Toaster } from './components/ui/sonner';
+import TrendsPage from './components/TrendsPage';
+
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
