@@ -33,6 +33,7 @@ from recommender_system import RecommenderSystem
 from database import Database
 from models import User, GroupData, StudentProfile
 from trend import trend_bp          # Trend Analysis Blueprint
+from summarizer import generate_summary  # one-paragraph project summary
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -435,6 +436,10 @@ def finalize_group():
 
     recs = _generate_recommendations(group["group_id"])
     if recs:
+        # attach summary to recs before saving so it is stored with them
+        top5    = recs.get("recommended_projects", [])[:5]
+        profile = recs.get("group_profile", {})
+        recs["summary"] = generate_summary(top5, profile)
         db.save_group_recommendations(group["group_id"], recs)
         return jsonify({"message": "Group finalized and recommendations generated",
                         "recommendations_ready": True}), 200
@@ -539,6 +544,9 @@ def update_group_weights():
     if group["is_finalized"]:
         recs = _generate_recommendations(group["group_id"])
         if recs:
+            top5    = recs.get("recommended_projects", [])[:5]
+            profile = recs.get("group_profile", {})
+            recs["summary"] = generate_summary(top5, profile)
             db.save_group_recommendations(group["group_id"], recs)
 
     return jsonify({
@@ -576,6 +584,9 @@ def get_recommendations():
     if not recs:
         recs = _generate_recommendations(group["group_id"])
         if recs:
+            top5    = recs.get("recommended_projects", [])[:5]
+            profile = recs.get("group_profile", {})
+            recs["summary"] = generate_summary(top5, profile)
             db.save_group_recommendations(group["group_id"], recs)
 
     if not recs:
@@ -588,6 +599,7 @@ def get_recommendations():
         "interests":     recs.get("recommended_interests", []),
         "applications":  recs.get("recommended_applications", []),
         "rdia":          recs.get("recommended_rdia", []),
+        "summary":       recs.get("summary"),   # stored at finalize time
     }), 200
 
 

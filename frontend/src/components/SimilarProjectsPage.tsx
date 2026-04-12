@@ -43,6 +43,7 @@ interface RecommendationsData {
     selected_rdia: string[];
   };
   projects: Project[];
+  summary?: string;  
 }
 
 export default function SimilarProjectsPage() {
@@ -152,43 +153,25 @@ export default function SimilarProjectsPage() {
         </p>
       </div>
 
-      {/* Group Profile Summary */}
-      <Card className="mb-8 border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-600" />
-            Your Group's Profile
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="font-medium text-gray-600 mb-1.5">Domain Interests</p>
-              <div className="flex flex-wrap gap-1">
-                {data.group_profile.selected_interests.map(i => (
-                  <Badge key={i} variant="secondary" className="text-xs">{i}</Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="font-medium text-gray-600 mb-1.5">Application Domains</p>
-              <div className="flex flex-wrap gap-1">
-                {data.group_profile.selected_applications.map(a => (
-                  <Badge key={a} variant="outline" className="text-xs">{a}</Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="font-medium text-gray-600 mb-1.5">RDIA Priority</p>
-              <div className="flex flex-wrap gap-1">
-                {data.group_profile.selected_rdia.map(r => (
-                  <Badge key={r} className="text-xs bg-purple-100 text-purple-700">{r}</Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Summary Card */}
+      {data.summary && (
+        <Card className="mb-8 border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+             Summary
+            </CardTitle>
+            <CardDescription>
+              AI-generated overview of your group's top 5 recommendations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-700 leading-relaxed">
+              {data.summary}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Projects List */}
       <div className="space-y-6">
