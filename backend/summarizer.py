@@ -38,32 +38,34 @@ _client = OpenAI(
 #   PROMPT TEMPLATE
 # ─────────────────────────────────────────────
 
-_PROMPT_TEMPLATE = """\
-You are an academic assistant helping undergraduate students understand the collective meaning of a set of recommended graduation projects.
+_PROMPT_TEMPLATE = """ You are an academic advisor helping undergraduate students identify a promising new graduation project idea, inspired by — but distinct from — a set of recommended projects.
 
-Write one cohesive paragraph (no headings, no lists) that synthesizes the TOP 5 projects as a group. Focus on the core ideas found in their abstracts: what these projects aim to achieve, the problems they address, and the innovative directions they represent. Highlight only the themes or intentions that appear across multiple projects, especially the recurring educational, technical, or user‑centered challenges they attempt to solve. Do NOT summarize each project individually; instead, extract the shared ideas that reveal the overall direction of the project set.
+Your task is to write ONE cohesive paragraph (no headings, no lists, no bullet points) that does three things in natural flow:
 
-Use only the information provided. Do NOT add or assume technologies, methods, or goals that are not explicitly mentioned.
+1. SYNTHESIZE the collective direction of the 5 projects: what problems they address, what approaches they share, and what they collectively leave unsolved or underexplored (based ONLY on the future_work and abstract fields provided).
 
-At the end of the paragraph, include a short closing statement explaining why these projects are suitable for the students reading this. Base this justification ONLY on the natural intersections between the project ideas and the group's stated interests, application domains, and RDIA focus. Address the reader directly using "you" and "your", and express the justification naturally within the flow of the text.
+2. SURFACE the innovation gap: identify one or two specific limitations, missing combinations, or underserved user needs that appear across multiple projects' future_work sections — these are the seeds of a new idea.
 
-Maximum 180 words.
+3. INSPIRE the reader: end with a forward-looking statement that invites the student to think about how their background intersects with these gaps, and what kind of new project they might uniquely be positioned to build. Address the reader directly using "you" and "your".
 
-The set of recommended projects to the group you talk to is as follows:
-{project_1_data}
-{project_2_data}
-{project_3_data}
-{project_4_data}
-{project_5_data}
+Strict constraints:
+- Use ONLY information explicitly present in the abstracts and future_work fields. Do NOT invent technologies, datasets, or claims.
+- Do NOT summarize each project individually.
+- Do NOT list the project titles.
+- Maximum 200 words.
+- Tone: intellectually engaging, direct, encouraging — like a mentor thinking out loud with the student.
 
-The Profile of the Group you are talking to is as follows:
+The set of recommended projects is as follows:
+Project 1: {project_1_data}
+Project 2: {project_2_data}
+Project 3: {project_3_data}
+Project 4: {project_4_data}
+Project 5: {project_5_data}
+
+The student group profile:
 - Interests: {group_interests}
 - Applications: {group_apps}
-- RDIA: {group_rdia}
-
-- Respond with one cohesive paragraph only.
-- Do NOT speak about the groups like if they were third person they are the reader, so use "you" and "your" when addressing them.
-"""
+- RDIA Focus: {group_rdia} """
 
 
 # ─────────────────────────────────────────────
