@@ -439,7 +439,7 @@ def finalize_group():
         # attach summary to recs before saving so it is stored with them
         top5    = recs.get("recommended_projects", [])[:5]
         profile = recs.get("group_profile", {})
-        recs["summary"] = generate_summary(top5, profile)
+        recs["summary"] = generate_summary(top5)
         db.save_group_recommendations(group["group_id"], recs)
         return jsonify({"message": "Group finalized and recommendations generated",
                         "recommendations_ready": True}), 200

@@ -15,7 +15,7 @@ Usage (standalone test):
 
 Usage (from app.py):
     from summarizer import generate_summary
-    summary = generate_summary(top5_projects, group_profile)
+    summary = generate_summary(top5_projects)
 """
 
 import os
@@ -38,34 +38,22 @@ _client = OpenAI(
 #   PROMPT TEMPLATE
 # ─────────────────────────────────────────────
 
-_PROMPT_TEMPLATE = """ You are an academic advisor helping undergraduate students identify a promising new graduation project idea, inspired by — but distinct from — a set of recommended projects.
+_PROMPT_TEMPLATE = """ You are an academic assistant helping undergraduate students understand the collective meaning of a set of recommended graduation projects.
 
-Your task is to write ONE cohesive paragraph (no headings, no lists, no bullet points) that does three things in natural flow:
-
-1. SYNTHESIZE the collective direction of the 5 projects: what problems they address, what approaches they share, and what they collectively leave unsolved or underexplored (based ONLY on the future_work and abstract fields provided).
-
-2. SURFACE the innovation gap: identify one or two specific limitations, missing combinations, or underserved user needs that appear across multiple projects' future_work sections — these are the seeds of a new idea.
-
-3. INSPIRE the reader: end with a forward-looking statement that invites the student to think about how their background intersects with these gaps, and what kind of new project they might uniquely be positioned to build. Address the reader directly using "you" and "your".
+Write one cohesive paragraph (no headings, no lists) that synthesizes the TOP 5 projects. Focus on the core ideas found in their abstracts: what these projects aim to achieve, the problems they address, and the innovative directions they represent. Highlight only the themes or intentions that appear across multiple projects, especially the recurring educational, technical, or user‑centered challenges they attempt to solve. 
 
 Strict constraints:
-- Use ONLY information explicitly present in the abstracts and future_work fields. Do NOT invent technologies, datasets, or claims.
-- Do NOT summarize each project individually.
-- Do NOT list the project titles.
-- Maximum 200 words.
-- Tone: intellectually engaging, direct, encouraging — like a mentor thinking out loud with the student.
+- Do NOT summarize each project individually; instead, extract the shared ideas that reveal the overall direction of the project set.
+- Use only the information provided. Do NOT add or assume technologies, methods, or goals that are not explicitly mentioned.
+- Maximum 50 words only.
 
-The set of recommended projects is as follows:
-Project 1: {project_1_data}
-Project 2: {project_2_data}
-Project 3: {project_3_data}
-Project 4: {project_4_data}
-Project 5: {project_5_data}
-
-The student group profile:
-- Interests: {group_interests}
-- Applications: {group_apps}
-- RDIA Focus: {group_rdia} """
+Project Set:
+{project_1_data}
+{project_2_data}
+{project_3_data}
+{project_4_data}
+{project_5_data}
+"""
 
 
 # ─────────────────────────────────────────────
@@ -78,38 +66,31 @@ def _format_project(rank: int, project: dict) -> str:
         f"Rank: {rank}\n"
         f"Title: {project.get('title', '')}\n"
         f"Keywords: {', '.join(project.get('keywords', []))}\n"
-        f"Application Domain(s): {', '.join(project.get('application_domains', project.get('application', [])))}\n"
-        f"Interest Area(s): {', '.join(project.get('interest_domains', project.get('interest', [])))}\n"
-        f"RDIA: {', '.join(project.get('rdia', []))}\n"
-        f"Match Explanation: {project.get('explanation', '')}"
-    )
+        f"Abstract: {project.get('abstract', '')}\n"
+        )
 
 
-def _build_prompt(top5: list[dict], group_profile: dict) -> str:
-    """Fill the prompt template with project and group profile data."""
+def _build_prompt(top5: list[dict]) -> str:
+    """Fill the prompt template with project data."""
     return _PROMPT_TEMPLATE.format(
         project_1_data=_format_project(1, top5[0]),
         project_2_data=_format_project(2, top5[1]),
         project_3_data=_format_project(3, top5[2]),
         project_4_data=_format_project(4, top5[3]),
         project_5_data=_format_project(5, top5[4]),
-        group_interests=", ".join(group_profile.get("selected_interests", [])),
-        group_apps=", ".join(group_profile.get("selected_applications", [])),
-        group_rdia=", ".join(group_profile.get("selected_rdia", [])),
-    )
+       )
 
 
 # ─────────────────────────────────────────────
 #   PUBLIC API ← This is the method you import into app.py
 # ─────────────────────────────────────────────
 
-def generate_summary(top5_projects: list[dict], group_profile: dict) -> str | None:
+def generate_summary(top5_projects: list[dict]) -> str | None:
     """
     Generate a one-paragraph summary for the top-5 recommended projects.
 
     Args:
         top5_projects : list of the first 5 project dicts from recommended_projects
-        group_profile : dict with keys selected_interests, selected_applications, selected_rdia
 
     Returns:
         Summary string, or None if HF_TOKEN is missing or the call fails.
@@ -122,7 +103,7 @@ def generate_summary(top5_projects: list[dict], group_profile: dict) -> str | No
         print("[SUMMARIZER] Fewer than 5 projects — skipping summary.")
         return None
 
-    prompt = _build_prompt(top5_projects, group_profile)
+    prompt = _build_prompt(top5_projects)
 
     try:
         completion = _client.chat.completions.create(

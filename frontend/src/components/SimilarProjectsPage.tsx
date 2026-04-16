@@ -149,8 +149,7 @@ export default function SimilarProjectsPage() {
       <div className="mb-8">
         <h1 className="text-3xl text-gray-900 mb-2">Similar Past Projects</h1>
         <p className="text-gray-600">
-          Found {data.projects.length} projects matching your group's academic profile and interests
-        </p>
+          Key details of the {data.projects.length} recommended projects </p>
       </div>
 
       {/* Summary Card */}

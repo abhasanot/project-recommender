@@ -7,7 +7,7 @@ import { User, Users, FileText, Lightbulb, TrendingUp, CheckCircle, Clock, Alert
 import api from '../services/api';
 
 interface DashboardHomeProps {
-  onNavigate: (page: 'home' | 'profile' | 'group' | 'projects' | 'supervisors' | 'trends' | 'settings') => void;
+  onNavigate: (page: 'home' | 'profile' | 'group' | 'projects' | 'trends' | 'settings') => void;
   studentName: string;
   groupFinalized: boolean;
 }
@@ -159,23 +159,6 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
           <CardContent>
             <Button variant="ghost" className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50">
               View Projects →
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:shadow-lg transition-all border-pink-100 hover:border-pink-300" onClick={() => onNavigate('supervisors')}>
-          <CardHeader>
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center mb-3">
-              <Lightbulb className="w-6 h-6 text-pink-700" />
-            </div>
-            <CardTitle>Find Supervisors</CardTitle>
-            <CardDescription>
-              Get matched with supervisors based on your interests
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="ghost" className="w-full text-pink-600 hover:text-pink-700 hover:bg-pink-50">
-              View Supervisors →
             </Button>
           </CardContent>
         </Card>

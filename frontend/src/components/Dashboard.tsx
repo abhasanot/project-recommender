@@ -3,12 +3,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import {
   User, Users, Lightbulb, LogOut, Home,
-  FileText, TrendingUp, Settings, UserCheck,
+  FileText, TrendingUp, Settings,
 } from 'lucide-react';
 import ProfilePage          from './ProfilePage';
 import GroupPage            from './GroupPage';
 import SimilarProjectsPage  from './SimilarProjectsPage';
-import SupervisorsPage      from './SupervisorsPage';
 import TrendsPage           from './TrendsPage';
 import DashboardHome        from './DashboardHome';
 import RecommendationsPage  from './RecommendationsPage';
@@ -17,7 +16,7 @@ import api from '../services/api';
 
 type Page =
   | 'home' | 'profile' | 'group' | 'recommendations'
-  | 'projects' | 'supervisors' | 'trends' | 'settings';
+  | 'projects' | 'trends' | 'settings';
 
 interface DashboardProps {
   studentName: string;
@@ -66,7 +65,6 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
     { id: 'group',           label: 'My Group',         icon: Users      },
     { id: 'recommendations', label: 'Recommendations',  icon: Lightbulb  },
     { id: 'projects',        label: 'Similar Projects', icon: FileText   },
-    { id: 'supervisors',     label: 'Supervisors',      icon: UserCheck  },
     { id: 'trends',          label: 'Trends',           icon: TrendingUp },
     { id: 'settings',        label: 'Group Settings',   icon: Settings   },
   ];
@@ -99,8 +97,6 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
         );
       case 'projects':
         return <SimilarProjectsPage />;
-      case 'supervisors':
-        return <SupervisorsPage groupFinalized={groupFinalized} />;
       case 'trends':
         return <TrendsPage />;
       case 'settings':
@@ -127,13 +123,13 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
         <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center text-center">
             {/* Logo */}
-            <div className="w-40 h-40 rounded-xl flex items-center justify-center overflow-hidden">
+            <div className="w-32 h-32 rounded-xl flex items-center justify-center overflow-hidden mb-0">
               <img 
                 src="/logo.png" 
                 alt="Mu'een Logo" 
-                className="w-40 h-40 object-contain"
+                className="w-32 h-32 object-contain"
                 onError={(e) => {
                   const target = e.currentTarget;
                   target.style.display = 'none';
@@ -147,14 +143,14 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
                 }}
               />
             </div>
-            <div>
-              <h1 className="text-xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Mu'een
-              </h1>
-              <p className="text-xs text-gray-400">Recommendation System</p>
-            </div>
+          <div className="-mt-1">
+            <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Mu'een
+            </h1>
+            <p className="text-xs text-gray-400 -mt-0.5">Recommendation System</p>
           </div>
         </div>
+      </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {menuItems.map(item => {

@@ -103,7 +103,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               Mu'een
             </h1>
-            <CardDescription className="mt-2">
+            <CardDescription className="mt-0">
               Your Academic Recommendation System
             </CardDescription>
           </div>

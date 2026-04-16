@@ -4,8 +4,8 @@ interface WelcomePageProps {
   onGetStarted: () => void;
 }
 
-// Floating particle data
-const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
+// Floating particle data - reduced for better performance on mobile
+const PARTICLES = Array.from({ length: 16 }, (_, i) => ({
   id: i,
   x: Math.random() * 100,
   y: Math.random() * 100,
@@ -102,10 +102,10 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
           transform: translateY(0);
         }
 
-        
+        /* Responsive logo - changed from fixed 380px */
         .welcome-logo {
-          width: 380px;
-          height: 380px;
+          width: min(280px, 70vw);
+          height: auto;
           object-fit: contain;
         }
 
@@ -129,6 +129,32 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
           border-radius: 20px;
           padding: 12px 20px;
           border: 1px solid rgba(79, 70, 229, 0.15);
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 640px) {
+          .welcome-logo {
+            width: min(340px, 60vw);
+          }
+        }
+
+        @media (min-width: 768px) {
+          .welcome-logo {
+            width: min(380px, 50vw);
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .welcome-logo {
+            width: 380px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .cta-button {
+            padding: 10px 28px;
+            font-size: 14px;
+          }
         }
       `}</style>
 
@@ -164,33 +190,33 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
           />
         ))}
 
-        
-        <div className="relative z-10 h-screen flex flex-col items-center justify-center px-4 py-4 overflow-auto">
+        <div className="relative z-10 h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-4 overflow-auto">
 
-          {/* Logo */}
+          {/* Logo - responsive */}
           <div className={`fade-in ${mounted ? 'visible' : ''}`}>
             <img src="/logo.png" alt="Mu'een Logo" className="welcome-logo" />
           </div>
 
-          {/* Tagline */}
-          <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: '16px' }}>
-            <span className="text-[10px] text-indigo-500 uppercase tracking-wider">
+          {/* Tagline - responsive margin */}
+          <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: 'clamp(8px, 3vw, 16px)' }}>
+            <span className="text-[8px] sm:text-[9px] md:text-[10px] text-indigo-500 uppercase tracking-wider font-medium">
               Academic Recommendation System
             </span>
           </div>
 
-          {/* Title */}
-          <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: '16px', textAlign: 'center' }}>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900">
+          {/* Title - responsive text sizes */}
+          <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: 'clamp(12px, 4vw, 16px)', textAlign: 'center' }}>
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 px-4">
               Your Academic
               <span className="text-indigo-600"> Recommendation System</span>
             </h1>
 
-            <p className="text-base text-gray-500 max-w-xl mx-auto mt-3">
-              Project Recommendation System for Computer Science Students at Imam Muhammad ibn Saud Islamic University            </p>
+            <p className="text-sm sm:text-base md:text-lg text-gray-500 max-w-xl mx-auto mt-3 px-4">
+              Project Recommendation System for Computer Science Students at Imam Muhammad ibn Saud Islamic University
+            </p>
           </div>
 
-          {/* Features */}
+          {/* Features - commented out as in original */}
           {/* <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: '24px' }}>
             <div className="flex flex-wrap justify-center gap-2">
               {['AI Matching', 'Collaboration', 'Smart Filtering', 'RDIA Ready'].map(f => (
@@ -199,8 +225,8 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
             </div>
           </div> */}
 
-          {/* Button */}
-          <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: '24px' }}>
+          {/* Button - responsive margin */}
+          <div className={`fade-in ${mounted ? 'visible' : ''}`} style={{ marginTop: 'clamp(20px, 5vw, 32px)' }}>
             <button onClick={handleGetStarted} className="cta-button">
               Get Started →
             </button>
