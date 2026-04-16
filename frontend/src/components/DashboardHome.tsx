@@ -95,19 +95,6 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
             <p className="text-sm text-gray-500 mt-1">Similar to your profile</p>
           </CardContent>
         </Card>
-
-        <Card className="border-l-4 border-l-pink-500">
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-pink-600" />
-              Supervisors
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl text-pink-600">-</p>
-            <p className="text-sm text-gray-500 mt-1">Recommended for you</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Quick Actions */}
