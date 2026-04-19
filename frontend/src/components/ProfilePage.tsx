@@ -79,10 +79,10 @@ export default function ProfilePage() {
       // ── restore saved profile ──────────────────────────────────────────
       const prof = profRes.data;
 
-      if (prof.courses?.length) {
+      if (prof.elective_courses?.length) {
         const codeToTitle: Record<string, string> = {};
         cOpts.forEach(c => { codeToTitle[c.code] = c.title; });
-        setCourses(prof.courses.map((c: { course_code: string; grade: string }) => ({
+        setCourses(prof.elective_courses.map((c: { course_code: string; grade: string }) => ({
           _key:        `${c.course_code}_${Math.random()}`,
           course_code: c.course_code,
           course_title: codeToTitle[c.course_code] ?? c.course_code,
@@ -166,7 +166,7 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       await api.post('/profile', {
-        courses:      courses.map(c => ({ course_code: c.course_code, grade: c.grade })),
+        elective_courses:      courses.map(c => ({ course_code: c.course_code, grade: c.grade })),
         interests,
         applications: apps,
         rdia,

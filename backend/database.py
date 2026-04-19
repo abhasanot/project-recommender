@@ -57,7 +57,6 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL UNIQUE,
                 elective_courses TEXT,
-                courses TEXT,
                 interests TEXT,
                 applications TEXT,
                 rdia TEXT,
@@ -147,12 +146,11 @@ class Database:
         conn = self.get_connection()
         conn.execute(
             "INSERT OR REPLACE INTO profiles "
-            "(user_id,elective_courses,courses,interests,applications,rdia,weighting_mode,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+            "(user_id,elective_courses,interests,applications,rdia,weighting_mode,updated_at) "
+            "VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)",
             (
                 profile.user_id,
                 json.dumps(profile.elective_courses),
-                json.dumps(profile.courses),
                 json.dumps(profile.interests),
                 json.dumps(profile.applications),
                 profile.rdia,
@@ -169,7 +167,6 @@ class Database:
             return None
         d = dict(row)
         d["elective_courses"]  = self._safe_json(d.get("elective_courses"))
-        d["courses"]           = self._safe_json(d.get("courses"))
         d["interests"]         = self._safe_json(d.get("interests"))
         d["applications"]      = self._safe_json(d.get("applications"))
         return d

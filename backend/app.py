@@ -98,8 +98,8 @@ def _is_profile_complete(user_id: int) -> bool:
     profile = db.get_profile(user_id)
     if not profile:
         return False
-    has_courses  = len(profile.get("courses", [])) >= 1
-    grades_ok    = all(c.get("grade", "") for c in profile.get("courses", []))
+    has_courses  = len(profile.get("elective_courses", [])) >= 1
+    grades_ok    = all(c.get("grade", "") for c in profile.get("elective_courses", []))
     has_interest = len(profile.get("interests", [])) >= 1
     has_app      = len(profile.get("applications", [])) >= 1
     has_rdia     = bool(profile.get("rdia", "").strip())
@@ -169,7 +169,7 @@ def _generate_recommendations(group_id: str):
             students.append({
                 "student_id":   str(uid),
                 "name":         user["name"],
-                "courses":      profile.get("courses", []),
+                "courses":      profile.get("elective_courses", []),
                 "interests":    profile.get("interests", []),
                 "applications": profile.get("applications", []),
                 "rdia":         profile.get("rdia", ""),
@@ -276,11 +276,11 @@ def get_current_user():
 @login_required
 def save_profile():
     data = request.json or {}
-    for key in ["courses", "interests", "applications", "rdia"]:
+    for key in ["elective_courses", "interests", "applications", "rdia"]:
         if key not in data:
             return jsonify({"error": f"Missing required section: {key}"}), 400
 
-    for course in data.get("courses", []):
+    for course in data.get("elective_courses", []):
         if "course_code" not in course or "grade" not in course:
             return jsonify({"error": "Each course must have course_code and grade"}), 400
         if not course.get("grade", "").strip():
@@ -289,7 +289,6 @@ def save_profile():
     profile = StudentProfile(
         user_id=session["user_id"],
         elective_courses=data.get("elective_courses", []),
-        courses=data.get("courses", []),
         interests=data.get("interests", []),
         applications=data.get("applications", []),
         rdia=data.get("rdia", ""),
@@ -306,7 +305,7 @@ def get_profile():
     profile = db.get_profile(session["user_id"])
     if not profile:
         return jsonify({
-            "elective_courses": [], "courses": [],
+            "elective_courses": [],
             "interests": [], "applications": [], "rdia": "", "weighting_mode": "balanced",
         }), 200
     profile["complete"] = _is_profile_complete(session["user_id"])
@@ -320,7 +319,7 @@ def get_profile_completion():
     if not profile:
         return jsonify({"completion": 0, "details": {}}), 200
 
-    courses  = profile.get("courses", [])
+    courses  = profile.get("elective_courses", [])
     grade_ok = all(c.get("grade", "") for c in courses)
     steps = {
         "courses":      len(courses) >= 1 and grade_ok,
