@@ -241,7 +241,7 @@ def login():
 
     user = db.get_user_by_email(data["email"])
     if not user or not bcrypt.check_password_hash(user["password_hash"], data["password"]):
-        return jsonify({"error": "Invalid credentials"}), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
     session.update({"user_id": user["id"], "user_email": user["email"],
                     "user_name": user["name"], "user_type": user["user_type"]})
