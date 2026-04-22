@@ -585,7 +585,7 @@ def get_recommendations():
         if recs:
             top5    = recs.get("recommended_projects", [])[:5]
             profile = recs.get("group_profile", {})
-            recs["summary"] = generate_summary(top5, profile)
+            recs["summary"] = generate_summary(top5)
             db.save_group_recommendations(group["group_id"], recs)
 
     if not recs:
@@ -628,7 +628,7 @@ def get_domains():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PROJECTS / SUPERVISORS / TRENDS
+# PROJECTS / TRENDS
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/projects", methods=["GET"])
@@ -649,27 +649,27 @@ def get_projects():
         return jsonify({"message": "Projects data not available yet.", "projects": []}), 200
 
 
-@app.route("/api/supervisors", methods=["GET"])
-def get_supervisors():
-    path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
-    try:
-        with open(path, encoding="utf-8") as f:
-            projects = json.load(f)
-        sups = {}
-        for pid, p in projects.items():
-            n = p.get("supervisor_name", "")
-            if not n: continue
-            if n not in sups:
-                sups[n] = {"name": n, "projects": 0, "domains": [], "applications": []}
-            sups[n]["projects"] += 1
-            sups[n]["domains"].extend(p.get("interest", []))
-            sups[n]["applications"].extend(p.get("application", []))
-        for s in sups.values():
-            s["domains"] = list(set(s["domains"]))
-            s["applications"] = list(set(s["applications"]))
-        return jsonify(list(sups.values())), 200
-    except FileNotFoundError:
-        return jsonify([]), 200
+# @app.route("/api/supervisors", methods=["GET"])
+# def get_supervisors():
+#     path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
+#     try:
+#         with open(path, encoding="utf-8") as f:
+#             projects = json.load(f)
+#         sups = {}
+#         for pid, p in projects.items():
+#             n = p.get("supervisor_name", "")
+#             if not n: continue
+#             if n not in sups:
+#                 sups[n] = {"name": n, "projects": 0, "domains": [], "applications": []}
+#             sups[n]["projects"] += 1
+#             sups[n]["domains"].extend(p.get("interest", []))
+#             sups[n]["applications"].extend(p.get("application", []))
+#         for s in sups.values():
+#             s["domains"] = list(set(s["domains"]))
+#             s["applications"] = list(set(s["applications"]))
+#         return jsonify(list(sups.values())), 200
+#     except FileNotFoundError:
+#         return jsonify([]), 200
 
 
 
