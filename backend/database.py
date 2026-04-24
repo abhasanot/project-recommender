@@ -101,6 +101,12 @@ class Database:
             )
         """)
 
+        # Migration: add added_projects column if it doesn't exist yet (for existing DBs)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN added_projects TEXT DEFAULT '[]'")
+        except Exception:
+            pass  # column already exists — that's fine
+
         conn.commit()
         conn.close()
 
@@ -290,3 +296,27 @@ class Database:
         if row:
             return dict(row)
         return {"weighting_mode": "balanced", "competency_weight": 0.5, "interests_weight": 0.5}
+
+    # ─────────────────── faculty added projects ───────────────────────────────
+
+    def get_faculty_added_projects(self, user_id: int) -> list:
+        """Return list of project IDs added by this faculty member."""
+        conn = self.get_connection()
+        row  = conn.execute("SELECT added_projects FROM users WHERE id=?", (user_id,)).fetchone()
+        conn.close()
+        if not row:
+            return []
+        return self._safe_json(row["added_projects"], default=[])
+
+    def append_faculty_added_project(self, user_id: int, project_id: str):
+        """Add a project ID to the faculty member's added_projects list."""
+        current = self.get_faculty_added_projects(user_id)
+        if project_id not in current:
+            current.append(project_id)
+        conn = self.get_connection()
+        conn.execute(
+            "UPDATE users SET added_projects=? WHERE id=?",
+            (json.dumps(current), user_id),
+        )
+        conn.commit()
+        conn.close()

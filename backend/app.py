@@ -627,6 +627,38 @@ def get_domains():
         return jsonify({"error": "Failed to load domain data"}), 500
 
 
+@app.route("/api/domains/acm", methods=["GET"])
+def get_acm_taxonomy():
+    """
+    Return all selectable ACM nodes (those with an id) as a flat list,
+    each entry containing the id and the full breadcrumb path list.
+    Shape: [ { id, path: ["Grandparent", "Parent", "Leaf name"] } ]
+    """
+    try:
+        path = os.path.join(BASE_DIR, "data", "ACM_CSS_taxonomy.json")
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+
+        flat = []
+
+        def collect(item, ancestors):
+            name        = item.get("name", "")
+            node_id     = item.get("id", "")
+            current_path = ancestors + [name]
+            if node_id:
+                flat.append({"id": node_id, "path": current_path})
+            for sub in item.get("subcategories", []):
+                collect(sub, current_path)
+
+        for top in raw.get("ACM_CSS_taxonomy", []):
+            collect(top, [])
+
+        return jsonify(flat), 200
+    except Exception as e:
+        print(f"[ERROR] /api/domains/acm: {e}")
+        return jsonify({"error": "Failed to load ACM taxonomy"}), 500
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # PROJECTS / TRENDS
 # ═════════════════════════════════════════════════════════════════════════════
@@ -670,6 +702,150 @@ def get_projects():
 #         return jsonify(list(sups.values())), 200
 #     except FileNotFoundError:
 #         return jsonify([]), 200
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ADD PROJECT  (faculty only)
+# ═════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/projects/check-id/<project_id>", methods=["GET"])
+@login_required
+def check_project_id(project_id):
+    """Check whether a project ID already exists on disk."""
+    projects_dir = os.path.join(BASE_DIR, "data", "projects")
+    exists = os.path.exists(os.path.join(projects_dir, f"{project_id}.json"))
+    return jsonify({"exists": exists}), 200
+
+
+@app.route("/api/projects/add", methods=["POST"])
+@login_required
+def add_project():
+    """
+    Faculty endpoint: save a new project JSON file to data/projects/,
+    update embeddings/project_index.json, and record the project ID
+    against the faculty user in the database.
+    """
+    if session.get("user_type") != "faculty":
+        return jsonify({"error": "Only faculty members can add projects"}), 403
+
+    data = request.json or {}
+
+    # ── Required field validation ──────────────────────────────────────────
+    required = ["title", "supervisor_name", "supervisor_id",
+                "academic_year", "semester", "abstract"]
+    for field in required:
+        if not data.get(field, "").strip():
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+
+    classification = data.get("classification", {})
+    if not classification.get("interest"):
+        return jsonify({"error": "At least one interest domain is required"}), 400
+    if not classification.get("application"):
+        return jsonify({"error": "At least one application domain is required"}), 400
+    if not classification.get("rdia"):
+        return jsonify({"error": "RDIA priority is required"}), 400
+    if not classification.get("acm"):
+        return jsonify({"error": "At least one ACM classification is required"}), 400
+
+    # ── Project ID — provided by faculty ─────────────────────────────────
+    proj_id = data.get("project_id", "").strip()
+    if not proj_id:
+        return jsonify({"error": "Project ID is required"}), 400
+
+    projects_dir = os.path.join(BASE_DIR, "data", "projects")
+    index_path   = os.path.join(BASE_DIR, "embeddings", "project_index.json")
+
+    # Check for collision with an existing project
+    if os.path.exists(os.path.join(projects_dir, f"{proj_id}.json")):
+        return jsonify({"error": f"Project ID '{proj_id}' already exists. Please use a different ID."}), 409
+
+    # ── Build project dict (matches existing project JSON schema) ─────────
+    project = {
+        "id":              proj_id,
+        "title":           data["title"].strip(),
+        "supervisor_name": data["supervisor_name"].strip(),
+        "supervisor_id":   data["supervisor_id"].strip(),
+        "academic_year":   year,
+        "semester":        sem,
+        "abstract":        data["abstract"].strip(),
+        "keywords":        [k.strip() for k in data.get("keywords", []) if k.strip()],
+        "introduction": {
+            "problem":    data.get("introduction", {}).get("problem", "").strip(),
+            "aim":        data.get("introduction", {}).get("aim", "").strip(),
+            "objectives": data.get("introduction", {}).get("objectives", []),
+        },
+        "conclusion": {
+            "results":     data.get("conclusion", {}).get("results", "").strip(),
+            "future_work": data.get("conclusion", {}).get("future_work", "").strip(),
+        },
+        "classification": {
+            "application": classification.get("application", []),
+            "interest":    classification.get("interest", []),
+            "acm":         classification.get("acm", []),
+            "rdia":        classification.get("rdia", []),
+        },
+    }
+
+    # ── Save JSON file ────────────────────────────────────────────────────
+    os.makedirs(projects_dir, exist_ok=True)
+    proj_file = os.path.join(projects_dir, f"{proj_id}.json")
+    with open(proj_file, "w", encoding="utf-8") as f:
+        json.dump(project, f, ensure_ascii=False, indent=2)
+
+    # ── Update project_index.json ─────────────────────────────────────────
+    try:
+        with open(index_path, encoding="utf-8") as f:
+            index = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        index = {}
+
+    index[proj_id] = {
+        "id":              proj_id,
+        "title":           project["title"],
+        "supervisor_name": project["supervisor_name"],
+        "supervisor_id":   project["supervisor_id"],
+        "academic_year":   project["academic_year"],
+        "semester":        project["semester"],
+        "keywords":        project["keywords"],
+        "abstract":        project["abstract"],
+        "future_work":     project["conclusion"]["future_work"],
+        "application":     project["classification"]["application"],
+        "interest":        project["classification"]["interest"],
+        "rdia":            project["classification"]["rdia"],
+        "acm":             project["classification"]["acm"],
+    }
+
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=2)
+
+    # ── Record in faculty's added_projects ────────────────────────────────
+    db.append_faculty_added_project(session["user_id"], proj_id)
+
+    # ── Generate embedding & register in live engine ──────────────────────
+    try:
+        engine = recommender_system.engine   # EmbeddingEngine instance
+        embedded = engine.embed_and_register_project(project)
+        if not embedded:
+            print(f"  [WARN] Embedding skipped for {proj_id} — project still saved to disk.")
+    except Exception as emb_err:
+        print(f"  [WARN] Could not embed {proj_id} at runtime: {emb_err}")
+
+    print(f"[INFO] Faculty {session['user_id']} added project {proj_id}")
+
+    return jsonify({
+        "message":    "Project added successfully",
+        "project_id": proj_id,
+    }), 201
+
+
+@app.route("/api/projects/my-added", methods=["GET"])
+@login_required
+def get_my_added_projects():
+    """Return list of project IDs this faculty member has added."""
+    if session.get("user_type") != "faculty":
+        return jsonify({"error": "Faculty only"}), 403
+    ids = db.get_faculty_added_projects(session["user_id"])
+    return jsonify({"added_project_ids": ids}), 200
 
 
 

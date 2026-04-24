@@ -28,10 +28,10 @@ export default defineConfig({
 
     // Proxy /api/* to the Flask backend.
     // In Docker dev mode: backend is reachable at http://backend:5000
-    // In local dev mode:  backend is at http://localhost:5000 (default)
+    // In local dev mode:  backend is at http://127.0.0.1:5000 (IPv4, not localhost)
     proxy: {
       '/api': {
-        target:       process.env.VITE_API_URL ?? 'http://localhost:5000',
+        target:       process.env.VITE_API_URL ?? 'http://127.0.0.1:5000',
         changeOrigin: true,
       },
     },
