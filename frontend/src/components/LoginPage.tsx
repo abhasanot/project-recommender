@@ -53,7 +53,7 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName || !regEmail || !regPassword || !regConfirmPassword) {
+    if (!regName || !regEmail || !regPassword || !regConfirmPassword || !regUserType) {
       toast.error("Please fill in all fields");
       return;
     }

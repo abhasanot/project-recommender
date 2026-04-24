@@ -13,7 +13,7 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
 import {
-  LogOut, FolderOpen, TrendingUp,
+  LogOut, FolderOpen, TrendingUp, PlusCircle,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -25,15 +25,16 @@ import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import TrendsPage          from "./TrendsPage";
+import TrendsPage            from "./TrendsPage";
 import FacultyBrowseProjects from "./FacultyBrowseProjects";
+import AddProjectPage        from "./AddProjectPage.tsx";
 
 interface FacultyDashboardProps {
   facultyName: string;
   onLogout:    () => void;
 }
 
-type FacultyPage = "analytics" | "browse" | "trends";
+type FacultyPage = "analytics" | "browse" | "trends" | "add_project";
 
 // ── Static analytics demo data ─────────────────────────────────────────────
 const PALETTE = [
@@ -72,16 +73,18 @@ export default function FacultyDashboard({ facultyName, onLogout }: FacultyDashb
   const [selectedSemester,  setSelectedSemester]  = useState("3rd Sem");
 
   const navItems: { id: FacultyPage; label: string; icon: React.ElementType }[] = [
-    { id: "browse",    label: "Browse Projects", icon: FolderOpen },
-    { id: "trends",    label: "Trend Analysis",  icon: TrendingUp },
+    { id: "browse",      label: "Browse Projects", icon: FolderOpen   },
+    { id: "trends",      label: "Trend Analysis",  icon: TrendingUp   },
+    { id: "add_project", label: "Add Project",      icon: PlusCircle   },
   ];
 
   // ── Page renderer ─────────────────────────────────────────────────────────
   const renderPage = () => {
     switch (currentPage) {
-      case "browse": return <FacultyBrowseProjects />;
-      case "trends": return <TrendsPage />;
-      default:       return <FacultyBrowseProjects />;
+      case "browse":      return <FacultyBrowseProjects />;
+      case "trends":      return <TrendsPage />;
+      case "add_project": return <AddProjectPage />;
+      default:            return <FacultyBrowseProjects />;
     }
   };
 
