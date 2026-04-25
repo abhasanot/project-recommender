@@ -758,7 +758,9 @@ def add_project():
     # Check for collision with an existing project
     if os.path.exists(os.path.join(projects_dir, f"{proj_id}.json")):
         return jsonify({"error": f"Project ID '{proj_id}' already exists. Please use a different ID."}), 409
-
+    # Parse year and semester from submitted data (e.g., "2023-2024" and "Fall")
+    year = data.get("academic_year", "").strip()
+    sem = data.get("semester", ""   ).strip()
     # ── Build project dict (matches existing project JSON schema) ─────────
     project = {
         "id":              proj_id,
