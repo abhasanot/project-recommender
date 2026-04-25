@@ -366,7 +366,9 @@ def join_group():
         return jsonify({"error": "Cannot join a finalized group"}), 400
     if session["user_id"] in group["members"]:
         return jsonify({"error": "Already a member of this group"}), 400
-
+    if len(group["members"]) >= 4:
+        return jsonify({"error": "Group is full (maximum 4 members)"}), 400
+  
     group["members"].append(session["user_id"])
     db.update_group_members(data["group_id"], group["members"])
 
