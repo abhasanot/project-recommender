@@ -118,7 +118,7 @@ export default function FacultyDashboard({ facultyName, onLogout }: FacultyDashb
               <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Mu'een
               </h1>
-              <p className="text-xs text-gray-400 -mt-0.5">Faculty Portal</p>
+              <p className="text-xs text-gray-400 -mt-0.5">Graduation Project Committee Portal</p>
             </div>
           </div>
         </div>
