@@ -22,12 +22,14 @@ from utils import (
     load_rdia,
     load_acm_taxonomy,
     get_course_texts,
+    get_project_segments,
     encode_late_fusion_engine,
     grade_to_weight,
     weighted_average,
     average_vectors,
     normalize,
     load_vector,
+    save_vector,
     load_plos_from_courses,
 )
 
@@ -247,3 +249,82 @@ class EmbeddingEngine:
     def get_project_vec(self, pid: str) -> np.ndarray:
         path = os.path.join(PROJECTS_EMB_DIR, f"{pid}.npy")
         return load_vector(path) if os.path.exists(path) else None
+
+    def embed_and_register_project(self, project: dict) -> bool:
+        """
+        Generate embedding for a single NEW project and register it live
+        in the engine — WITHOUT re-embedding existing projects.
+
+        Steps:
+          1. Build text segments for the new project (same logic as phase2_embed.py)
+          2. Encode with Late Fusion → single normalized vector
+          3. Save vector to embeddings/projects/{pid}.npy
+          4. Add metadata entry to self.project_index (in-memory)
+          5. Append vector to self.project_matrix
+          6. Append pid to self.project_ids
+          7. Rebuild BM25 index to include the new document
+
+        Returns True on success, False if no segments could be built.
+        """
+        pid = project.get("id", "")
+        if not pid:
+            print("[embed_and_register_project] ERROR: project has no 'id'.")
+            return False
+
+        # 1. Build segments (identical approach to phase2_embed.py)
+        segments = get_project_segments(
+            project,
+            self.acm_map,
+            self.interest_map,
+            self.app_map,
+            self.rdia_map,
+        )
+        if not segments:
+            print(f"[embed_and_register_project] No segments for {pid}, skipping.")
+            return False
+
+        # 2. Encode via Late Fusion
+        vecs_raw = self.model.encode(
+            segments,
+            normalize_embeddings=True,
+            batch_size=32,
+            show_progress_bar=False,
+        )
+        vector = normalize(average_vectors(list(vecs_raw)))
+
+        # 3. Save .npy file
+        os.makedirs(PROJECTS_EMB_DIR, exist_ok=True)
+        save_vector(vector, os.path.join(PROJECTS_EMB_DIR, f"{pid}.npy"))
+
+        # 4. Add to in-memory project_index
+        clf = project.get("classification", {})
+        conclusion = project.get("conclusion", {})
+        self.project_index[pid] = {
+            "id":              pid,
+            "title":           project.get("title", ""),
+            "supervisor_name": project.get("supervisor_name", ""),
+            "supervisor_id":   project.get("supervisor_id", ""),
+            "academic_year":   project.get("academic_year", ""),
+            "semester":        project.get("semester", ""),
+            "keywords":        project.get("keywords", []),
+            "abstract":        project.get("abstract", ""),
+            "future_work":     conclusion.get("future_work", ""),
+            "application":     clf.get("application", []),
+            "interest":        clf.get("interest", []),
+            "rdia":            clf.get("rdia", []),
+            "acm":             clf.get("acm", []),
+        }
+
+        # 5 & 6. Append to project matrix and IDs list
+        self.project_ids.append(pid)
+        new_row = vector.reshape(1, -1).astype(np.float32)
+        if self.project_matrix.shape[0] == 0:
+            self.project_matrix = new_row
+        else:
+            self.project_matrix = np.vstack([self.project_matrix, new_row])
+
+        # 7. Rebuild BM25 so the new project is searchable immediately
+        self._build_bm25()
+
+        print(f"[embed_and_register_project] ✓ {pid} embedded & registered live.")
+        return True
