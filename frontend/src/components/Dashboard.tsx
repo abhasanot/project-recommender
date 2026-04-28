@@ -65,7 +65,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
     { id: 'group',           label: 'My Group',         icon: Users      },
     { id: 'recommendations', label: 'Recommendations',  icon: Lightbulb  },
     { id: 'projects',        label: 'Similar Projects', icon: FileText   },
-    { id: 'trends',          label: 'Trends',           icon: TrendingUp },
+    { id: 'trends',          label: 'Trend Analysis',           icon: TrendingUp },
     { id: 'settings',        label: 'Group Settings',   icon: Settings   },
   ];
 
