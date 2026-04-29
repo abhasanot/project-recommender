@@ -47,6 +47,8 @@ class Database:
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 name TEXT NOT NULL,
+                first_name TEXT DEFAULT '',
+                last_name TEXT DEFAULT '',
                 user_type TEXT DEFAULT 'student',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -107,6 +109,13 @@ class Database:
         except Exception:
             pass  # column already exists — that's fine
 
+        # Migration: add first_name / last_name columns for existing DBs
+        for col in ("first_name", "last_name"):
+            try:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT ''")
+            except Exception:
+                pass  # column already exists — that's fine
+
         conn.commit()
         conn.close()
 
@@ -126,9 +135,11 @@ class Database:
         conn   = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO users (email,password_hash,name,user_type) "
-            "VALUES (?,?,?,?)",
-            (user.email, user.password_hash, user.name, user.user_type),
+            "INSERT INTO users (email,password_hash,name,first_name,last_name,user_type) "
+            "VALUES (?,?,?,?,?,?)",
+            (user.email, user.password_hash, user.name,
+             getattr(user, "first_name", ""), getattr(user, "last_name", ""),
+             user.user_type),
         )
         uid = cursor.lastrowid
         conn.commit(); conn.close()

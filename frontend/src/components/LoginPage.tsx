@@ -15,73 +15,314 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 
+// ============================================
+// REGULAR EXPRESSIONS FOR VALIDATION
+// ============================================
+
+// Name regex: letters (Latin + Arabic), spaces, apostrophe, hyphen
+const NAME_REGEX = /^[a-zA-Z\u0600-\u06FF\s'\-]+$/;
+
+// Email regex: standard email format
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+
+// Password regex: minimum 8 chars, uppercase, lowercase, number, special char
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 export default function LoginPage() {
   const { login, signup } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  // Login form — no user_type field (backend derives it from the stored account)
-  const [loginEmail,    setLoginEmail]    = useState("");
+  // Login form states
+  const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  
+  // Login error states
+  const [loginEmailError, setLoginEmailError] = useState("");
+  const [loginPasswordError, setLoginPasswordError] = useState("");
+  const [loginTouched, setLoginTouched] = useState({ email: false, password: false });
 
-  // Register form — keeps user_type selector
-  const [regName,            setRegName]            = useState("");
-  const [regEmail,           setRegEmail]            = useState("");
-  const [regPassword,        setRegPassword]         = useState("");
-  const [regConfirmPassword, setRegConfirmPassword]  = useState("");
-  const [regUserType,        setRegUserType]         = useState<"student" | "faculty">("student");
+  // Register form states
+  const [regFirstName, setRegFirstName] = useState("");
+  const [regLastName, setRegLastName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [regUserType, setRegUserType] = useState<"student" | "faculty">("student");
 
-  // ── Login ──────────────────────────────────────────────────────────────────
+  // Register error states
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  // Track if user has touched each field (to show errors only after interaction)
+  const [regTouched, setRegTouched] = useState({
+    firstName: false,
+    lastName: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
+
+  // ============================================
+  // VALIDATION FUNCTIONS
+  // ============================================
+
+  // Login validation
+  const validateLoginEmail = (value: string): string => {
+    if (!value.trim()) return "Email is required";
+    if (!EMAIL_REGEX.test(value)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validateLoginPassword = (value: string): string => {
+    if (!value) return "Password is required";
+    return "";
+  };
+
+  // Register validation
+  const validateFirstName = (value: string): string => {
+    if (!value.trim()) return "First name is required";
+    if (!NAME_REGEX.test(value)) return "First name must contain only letters (no numbers or special characters)";
+    if (value.length < 2) return "First name must be at least 2 characters";
+    if (value.length > 50) return "First name must not exceed 50 characters";
+    return "";
+  };
+
+  const validateLastName = (value: string): string => {
+    if (!value.trim()) return "Last name is required";
+    if (!NAME_REGEX.test(value)) return "Last name must contain only letters (no numbers or special characters)";
+    if (value.length < 2) return "Last name must be at least 2 characters";
+    if (value.length > 50) return "Last name must not exceed 50 characters";
+    return "";
+  };
+
+  const validateEmail = (value: string): string => {
+    if (!value.trim()) return "Email is required";
+    if (!EMAIL_REGEX.test(value)) return "Please enter a valid email address (e.g., name@domain.com)";
+    if (value.length > 100) return "Email must not exceed 100 characters";
+    return "";
+  };
+
+  const validatePassword = (value: string): string => {
+    if (!value) return "Password is required";
+    if (!PASSWORD_REGEX.test(value)) {
+      return "Password must be at least 8 characters and include: uppercase, lowercase, number, and special character (@$!%*?&)";
+    }
+    return "";
+  };
+
+  const validateConfirmPassword = (value: string, password: string): string => {
+    if (!value) return "Please confirm your password";
+    if (value !== password) return "Passwords do not match";
+    return "";
+  };
+
+  // ============================================
+  // LOGIN HANDLERS
+  // ============================================
+
+  const handleLoginEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLoginEmail(value);
+    // Clear server error when user starts typing
+    if (loginEmailError) {
+      setLoginEmailError("");
+    }
+    if (loginTouched.email) {
+      setLoginEmailError(validateLoginEmail(value));
+    }
+  };
+
+  const handleLoginEmailBlur = () => {
+    setLoginTouched(prev => ({ ...prev, email: true }));
+    setLoginEmailError(validateLoginEmail(loginEmail));
+  };
+
+  const handleLoginPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLoginPassword(value);
+    if (loginTouched.password) {
+      setLoginPasswordError(validateLoginPassword(value));
+    }
+  };
+
+  const handleLoginPasswordBlur = () => {
+    setLoginTouched(prev => ({ ...prev, password: true }));
+    setLoginPasswordError(validateLoginPassword(loginPassword));
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) {
-      toast.error("Please fill in all fields");
+    
+    // Mark all login fields as touched
+    setLoginTouched({ email: true, password: true });
+    
+    // Validate all login fields
+    const emailErr = validateLoginEmail(loginEmail);
+    const passwordErr = validateLoginPassword(loginPassword);
+    
+    setLoginEmailError(emailErr);
+    setLoginPasswordError(passwordErr);
+    
+    // Stop if validation fails - NO TOAST, only inline errors
+    if (emailErr || passwordErr) {
       return;
     }
+    
     setLoading(true);
     try {
       await login(loginEmail, loginPassword);
-      toast.success("Login successful!");
+      toast.success("Login successful!"); // ✅ Only success messages as Toast
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Login failed");
+      const serverError = err.response?.data?.error || "Login failed";
+      // Show server error under the appropriate field - NO TOAST
+      if (serverError.toLowerCase().includes("email") || serverError.toLowerCase().includes("not found")) {
+        setLoginEmailError(serverError);
+      } else if (serverError.toLowerCase().includes("password")) {
+        setLoginPasswordError(serverError);
+      } else {
+        setLoginEmailError(serverError);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Register ───────────────────────────────────────────────────────────────
+  // ============================================
+  // REGISTER HANDLERS
+  // ============================================
+
+  const handleFirstNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRegFirstName(value);
+    if (regTouched.firstName) {
+      setFirstNameError(validateFirstName(value));
+    }
+  };
+
+  const handleFirstNameBlur = () => {
+    setRegTouched(prev => ({ ...prev, firstName: true }));
+    setFirstNameError(validateFirstName(regFirstName));
+  };
+
+  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRegLastName(value);
+    if (regTouched.lastName) {
+      setLastNameError(validateLastName(value));
+    }
+  };
+
+  const handleLastNameBlur = () => {
+    setRegTouched(prev => ({ ...prev, lastName: true }));
+    setLastNameError(validateLastName(regLastName));
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRegEmail(value);
+    // Clear server error when user starts typing
+    if (emailError) {
+      setEmailError("");
+    }
+    if (regTouched.email) {
+      setEmailError(validateEmail(value));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    setRegTouched(prev => ({ ...prev, email: true }));
+    setEmailError(validateEmail(regEmail));
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRegPassword(value);
+    if (regTouched.password) {
+      setPasswordError(validatePassword(value));
+    }
+    if (regTouched.confirmPassword) {
+      setConfirmPasswordError(validateConfirmPassword(regConfirmPassword, value));
+    }
+  };
+
+  const handlePasswordBlur = () => {
+    setRegTouched(prev => ({ ...prev, password: true }));
+    setPasswordError(validatePassword(regPassword));
+  };
+
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRegConfirmPassword(value);
+    if (regTouched.confirmPassword) {
+      setConfirmPasswordError(validateConfirmPassword(value, regPassword));
+    }
+  };
+
+  const handleConfirmPasswordBlur = () => {
+    setRegTouched(prev => ({ ...prev, confirmPassword: true }));
+    setConfirmPasswordError(validateConfirmPassword(regConfirmPassword, regPassword));
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName || !regEmail || !regPassword || !regConfirmPassword || !regUserType) {
-      toast.error("Please fill in all fields");
+
+    // Mark all register fields as touched
+    setRegTouched({
+      firstName: true,
+      lastName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    });
+
+    // Validate all register fields
+    const firstNameErr = validateFirstName(regFirstName);
+    const lastNameErr = validateLastName(regLastName);
+    const emailErr = validateEmail(regEmail);
+    const passwordErr = validatePassword(regPassword);
+    const confirmErr = validateConfirmPassword(regConfirmPassword, regPassword);
+
+    setFirstNameError(firstNameErr);
+    setLastNameError(lastNameErr);
+    setEmailError(emailErr);
+    setPasswordError(passwordErr);
+    setConfirmPasswordError(confirmErr);
+
+    // Stop if validation fails - NO TOAST, only inline errors
+    if (firstNameErr || lastNameErr || emailErr || passwordErr || confirmErr) {
       return;
     }
-    if (regPassword !== regConfirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-    if (regPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
+
     setLoading(true);
     try {
       await signup({
-        name:      regName,
-        email:     regEmail,
-        password:  regPassword,
+        first_name: regFirstName,
+        last_name: regLastName,
+        email: regEmail,
+        password: regPassword,
         user_type: regUserType,
       });
-      toast.success("Registration successful!");
+      toast.success("Registration successful!"); // ✅ Only success messages as Toast
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Registration failed");
+      const serverError = err.response?.data?.error || "Registration failed";
+      // Show server error under the appropriate field - NO TOAST
+      if (serverError.toLowerCase().includes("email")) {
+        setEmailError(serverError);
+      } else if (serverError.toLowerCase().includes("password")) {
+        setPasswordError(serverError);
+      } else if (serverError.toLowerCase().includes("name")) {
+        setFirstNameError(serverError);
+        setLastNameError(serverError);
+      } else {
+        setEmailError(serverError);
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-100 px-4">
@@ -122,33 +363,48 @@ export default function LoginPage() {
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
 
-            {/* ── LOGIN TAB ── no user-type selector */}
+            {/* ============================================
+                LOGIN TAB - Error messages appear as red text under fields only
+                Success messages appear as Toast
+                ============================================ */}
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
+                {/* Email Field */}
+                <div className="space-y-1">
                   <Label htmlFor="loginEmail">Email</Label>
                   <Input
                     id="loginEmail"
                     type="email"
                     placeholder="your.email@university.edu"
                     value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
+                    onChange={handleLoginEmailChange}
+                    onBlur={handleLoginEmailBlur}
                     required
                     disabled={loading}
+                    className="bg-transparent"
                   />
+                  {loginEmailError && loginTouched.email && (
+                    <p className="text-red-500 text-sm mt-1">{loginEmailError}</p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* Password Field */}
+                <div className="space-y-1">
                   <Label htmlFor="loginPassword">Password</Label>
                   <Input
                     id="loginPassword"
                     type="password"
                     placeholder="Enter your password"
                     value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
+                    onChange={handleLoginPasswordChange}
+                    onBlur={handleLoginPasswordBlur}
                     required
                     disabled={loading}
+                    className="bg-transparent"
                   />
+                  {loginPasswordError && loginTouched.password && (
+                    <p className="text-red-500 text-sm mt-1">{loginPasswordError}</p>
+                  )}
                 </div>
 
                 <Button
@@ -161,17 +417,20 @@ export default function LoginPage() {
               </form>
             </TabsContent>
 
-            {/* ── REGISTER TAB ── keeps user-type selector */}
+            {/* ============================================
+                REGISTER TAB - Error messages appear as red text under fields only
+                Success messages appear as Toast
+                ============================================ */}
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-4">
-                {/* User type — only shown during registration */}
+                {/* User Type Selection */}
                 <div className="space-y-2">
                   <Label htmlFor="regUserType">I am a *</Label>
                   <Select
                     value={regUserType}
                     onValueChange={(v: "student" | "faculty") => setRegUserType(v)}
                   >
-                    <SelectTrigger id="regUserType">
+                    <SelectTrigger id="regUserType" className="bg-transparent">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -181,56 +440,94 @@ export default function LoginPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="regName">Full Name</Label>
+                {/* First Name Field */}
+                <div className="space-y-1">
+                  <Label htmlFor="regFirstName">First Name *</Label>
                   <Input
-                    id="regName"
+                    id="regFirstName"
                     type="text"
-                    placeholder="Enter your full name"
-                    value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
-                    required
+                    placeholder="Enter your first name"
+                    value={regFirstName}
+                    onChange={handleFirstNameChange}
+                    onBlur={handleFirstNameBlur}
                     disabled={loading}
+                    className="bg-transparent"
                   />
+                  {firstNameError && regTouched.firstName && (
+                    <p className="text-red-500 text-sm mt-1">{firstNameError}</p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="regEmail">Email</Label>
+                {/* Last Name Field */}
+                <div className="space-y-1">
+                  <Label htmlFor="regLastName">Last Name *</Label>
+                  <Input
+                    id="regLastName"
+                    type="text"
+                    placeholder="Enter your last name"
+                    value={regLastName}
+                    onChange={handleLastNameChange}
+                    onBlur={handleLastNameBlur}
+                    disabled={loading}
+                    className="bg-transparent"
+                  />
+                  {lastNameError && regTouched.lastName && (
+                    <p className="text-red-500 text-sm mt-1">{lastNameError}</p>
+                  )}
+                </div>
+
+                {/* Email Field */}
+                <div className="space-y-1">
+                  <Label htmlFor="regEmail">Email *</Label>
                   <Input
                     id="regEmail"
                     type="email"
                     placeholder="your.email@university.edu"
                     value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    required
+                    onChange={handleEmailChange}
+                    onBlur={handleEmailBlur}
                     disabled={loading}
+                    className="bg-transparent"
                   />
+                  {emailError && regTouched.email && (
+                    <p className="text-red-500 text-sm mt-1">{emailError}</p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="regPassword">Password</Label>
+                {/* Password Field */}
+                <div className="space-y-1">
+                  <Label htmlFor="regPassword">Password *</Label>
                   <Input
                     id="regPassword"
                     type="password"
-                    placeholder="Create a password (min. 6 chars)"
+                    placeholder="Create a password"
                     value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    required
+                    onChange={handlePasswordChange}
+                    onBlur={handlePasswordBlur}
                     disabled={loading}
+                    className="bg-transparent"
                   />
+                  {passwordError && regTouched.password && (
+                    <p className="text-red-500 text-sm mt-1">{passwordError}</p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="regConfirmPassword">Confirm Password</Label>
+                {/* Confirm Password Field */}
+                <div className="space-y-1">
+                  <Label htmlFor="regConfirmPassword">Confirm Password *</Label>
                   <Input
                     id="regConfirmPassword"
                     type="password"
                     placeholder="Confirm your password"
                     value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    required
+                    onChange={handleConfirmPasswordChange}
+                    onBlur={handleConfirmPasswordBlur}
                     disabled={loading}
+                    className="bg-transparent"
                   />
+                  {confirmPasswordError && regTouched.confirmPassword && (
+                    <p className="text-red-500 text-sm mt-1">{confirmPasswordError}</p>
+                  )}
                 </div>
 
                 <Button

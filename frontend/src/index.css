@@ -107,3 +107,64 @@ select,
 .overflow-y-auto {
   background-color: white !important;
 }
+
+/* ============================================
+   UNIFIED TOAST NOTIFICATION STYLES
+   Consistent across all pages
+   ============================================ */
+
+/* Toast container styling */
+[data-sonner-toast] {
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  font-family: inherit !important;
+}
+
+/* Error toast */
+[data-sonner-toast][data-type="error"] {
+  background-color: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-left: 4px solid #dc2626 !important;
+}
+
+/* Success toast */
+[data-sonner-toast][data-type="success"] {
+  background-color: #f0fdf4 !important;
+  color: #16a34a !important;
+  border-left: 4px solid #16a34a !important;
+}
+
+/* Warning toast */
+[data-sonner-toast][data-type="warning"] {
+  background-color: #fffbeb !important;
+  color: #d97706 !important;
+  border-left: 4px solid #d97706 !important;
+}
+
+/* Info toast */
+[data-sonner-toast][data-type="info"] {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  border-left: 4px solid #2563eb !important;
+}
+
+/* Toast title */
+[data-sonner-toast] [data-title] {
+  font-weight: 500 !important;
+}
+
+/* Toast description */
+[data-sonner-toast] [data-description] {
+  font-size: 0.75rem !important;
+  opacity: 0.8 !important;
+}
+
+/* Close button */
+[data-sonner-toast] button {
+  color: inherit !important;
+  opacity: 0.6 !important;
+}
+
+[data-sonner-toast] button:hover {
+  opacity: 1 !important;
+}

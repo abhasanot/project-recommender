@@ -50,10 +50,61 @@ export default function ProfilePage() {
   const [saving,      setSaving]      = useState(false);
   const [loadError,   setLoadError]   = useState<string | null>(null);
 
+  // ── Error state for inline validation ────────────────────────────────────
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Track touched state for each validation
+  const [touched, setTouched] = useState({
+    courses: false,
+    interests: false,
+    apps: false,
+    rdia: false,
+  });
+
+  // ── Validation functions ─────────────────────────────────────────────────
+  const validateCourses = (): string => {
+    if (courses.length === 0) return "Please add at least one course";
+    const missing = courses.find(c => !c.grade.trim());
+    if (missing) return `Please select a grade for "${missing.course_title}"`;
+    return "";
+  };
+
+  const validateInterests = (): string => {
+    if (interests.length === 0) return "Please select at least one domain interest";
+    return "";
+  };
+
+  const validateApps = (): string => {
+    if (apps.length === 0) return "Please select at least one application domain";
+    return "";
+  };
+
+  const validateRdia = (): string => {
+    if (!rdia.trim()) return "Please select an RDIA national priority";
+    return "";
+  };
+
+  // Get all validation errors
+  const getValidationErrors = () => {
+    return {
+      courses: validateCourses(),
+      interests: validateInterests(),
+      apps: validateApps(),
+      rdia: validateRdia(),
+    };
+  };
+
+  // Check if form is valid
+  const isFormValid = (): boolean => {
+    const errors = getValidationErrors();
+    return !errors.courses && !errors.interests && !errors.apps && !errors.rdia;
+  };
+
   // ── load domains + saved profile on mount ────────────────────────────────
   const load = useCallback(async () => {
     setPageLoading(true);
     setLoadError(null);
+    setSaveError(null);
     try {
       const [domRes, profRes] = await Promise.all([
         api.get('/domains'),
@@ -65,7 +116,6 @@ export default function ProfilePage() {
       const aRaw                  = domRes.data.applications ?? [];
       const rOpts: RdiaOption[]   = domRes.data.rdia        ?? [];
 
-      // Application_Domains.json items have shape {Field, Focus} OR {name, description}
       const aOpts: DomainOption[] = aRaw.map((item: any) => ({
         name:        item.name ?? item.Field ?? String(item),
         description: item.description ?? item.Focus ?? '',
@@ -76,7 +126,6 @@ export default function ProfilePage() {
       setAppOptions(aOpts);
       setRdiaOptions(rOpts);
 
-      // ── restore saved profile ──────────────────────────────────────────
       const prof = profRes.data;
 
       if (prof.elective_courses?.length) {
@@ -97,7 +146,7 @@ export default function ProfilePage() {
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? 'Failed to load profile data';
       setLoadError(msg);
-      toast.error(msg);
+      toast.error(msg); // ✅ Loading error shows as Toast
     } finally {
       setPageLoading(false);
     }
@@ -110,7 +159,10 @@ export default function ProfilePage() {
   const addCourse = (code: string) => {
     if (!code) return;
     if (courses.find(c => c.course_code === code)) {
-      toast.error('This course is already added'); return;
+      const errorMsg = 'This course is already added';
+      setSaveError(errorMsg);
+      // NO TOAST - only inline error
+      return;
     }
     const opt = courseOptions.find(c => c.code === code);
     setCourses(prev => [...prev, {
@@ -119,13 +171,18 @@ export default function ProfilePage() {
       course_title: opt?.title ?? code,
       grade:       '',
     }]);
+    setSaveError(null);
   };
 
-  const removeCourse = (key: string) =>
+  const removeCourse = (key: string) => {
     setCourses(prev => prev.filter(c => c._key !== key));
+    setSaveError(null);
+  };
 
-  const setGrade = (key: string, grade: string) =>
+  const setGrade = (key: string, grade: string) => {
     setCourses(prev => prev.map(c => c._key === key ? { ...c, grade } : c));
+    setSaveError(null);
+  };
 
   // ── interest / application toggles ───────────────────────────────────────
 
@@ -135,34 +192,58 @@ export default function ProfilePage() {
   ) => {
     if (list.includes(name)) {
       setList(list.filter(i => i !== name));
+      setSaveError(null);
     } else if (list.length >= max) {
-      toast.error(`Maximum ${max} ${label} allowed`);
+      const errorMsg = `Maximum ${max} ${label} allowed`;
+      setSaveError(errorMsg);
+      // NO TOAST - only inline error
     } else {
       setList([...list, name]);
+      setSaveError(null);
     }
   };
 
-  // ── save ─────────────────────────────────────────────────────────────────
+  // Mark fields as touched on blur
+  const markCoursesTouched = () => setTouched(prev => ({ ...prev, courses: true }));
+  const markInterestsTouched = () => setTouched(prev => ({ ...prev, interests: true }));
+  const markAppsTouched = () => setTouched(prev => ({ ...prev, apps: true }));
+  const markRdiaTouched = () => setTouched(prev => ({ ...prev, rdia: true }));
 
+  // ── save with inline validation ──────────────────────────────────────────
   const handleSave = async () => {
-    // validation
-    if (courses.length === 0) {
-      toast.error('Please add at least one course'); return;
+    // Mark all fields as touched
+    setTouched({
+      courses: true,
+      interests: true,
+      apps: true,
+      rdia: true,
+    });
+
+    // Validate all fields
+    const errors = getValidationErrors();
+    
+    if (errors.courses) {
+      setSaveError(errors.courses);
+      // NO TOAST - only inline error
+      return;
     }
-    const missing = courses.find(c => !c.grade.trim());
-    if (missing) {
-      toast.error(`Please select a grade for "${missing.course_title}"`); return;
+    if (errors.interests) {
+      setSaveError(errors.interests);
+      // NO TOAST - only inline error
+      return;
     }
-    if (interests.length === 0) {
-      toast.error('Please select at least one domain interest'); return;
+    if (errors.apps) {
+      setSaveError(errors.apps);
+      // NO TOAST - only inline error
+      return;
     }
-    if (apps.length === 0) {
-      toast.error('Please select at least one application domain'); return;
-    }
-    if (!rdia.trim()) {
-      toast.error('Please select an RDIA national priority'); return;
+    if (errors.rdia) {
+      setSaveError(errors.rdia);
+      // NO TOAST - only inline error
+      return;
     }
 
+    setSaveError(null);
     setSaving(true);
     try {
       await api.post('/profile', {
@@ -171,9 +252,11 @@ export default function ProfilePage() {
         applications: apps,
         rdia,
       });
-      toast.success('Profile saved successfully!');
+      toast.success('Profile saved successfully!'); // ✅ Only success message as Toast
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? 'Failed to save profile');
+      const msg = err?.response?.data?.error ?? 'Failed to save profile';
+      setSaveError(msg);
+      toast.error(msg); // ✅ Save error shows as Toast
     } finally {
       setSaving(false);
     }
@@ -184,13 +267,16 @@ export default function ProfilePage() {
   const gradesOk  = courses.length > 0 && courses.every(c => c.grade.trim());
   const steps = {
     'Courses & Grades':       gradesOk,
-    'Domain Interests':     interests.length >= 1,
+    'Domain Interests':       interests.length >= 1,
     'Application Domains':    apps.length >= 1,
     'RDIA National Priority': rdia.trim() !== '',
   };
   const completePct = Math.round(Object.values(steps).filter(Boolean).length / Object.keys(steps).length * 100);
 
   const usedCodes = new Set(courses.map(c => c.course_code));
+
+  // Get current errors for display
+  const currentErrors = getValidationErrors();
 
   // ── render states ─────────────────────────────────────────────────────────
 
@@ -243,6 +329,16 @@ export default function ProfilePage() {
           </Button>
         </div>
 
+        {/* Global save error message (inline, shows for validation errors) */}
+        {saveError && (
+          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200">
+            <p className="text-red-600 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              {saveError}
+            </p>
+          </div>
+        )}
+
         {/* Completion progress */}
         <Card className="mb-6 border-indigo-100 bg-gradient-to-r from-indigo-50 to-purple-50">
           <CardContent className="py-4">
@@ -270,7 +366,10 @@ export default function ProfilePage() {
         <div className="space-y-6">
 
           {/* ── Courses & Grades ─────────────────────────────────────────── */}
-          <Card>
+          <Card 
+            className={touched.courses && currentErrors.courses ? 'border-red-200' : ''}
+            onBlur={markCoursesTouched}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Courses &amp; Grades
@@ -281,10 +380,9 @@ export default function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Dropdown to pick a course */}
               <Select
                 onValueChange={addCourse}
-                value=""           // always reset after selection
+                value=""
               >
                 <SelectTrigger>
                   <SelectValue placeholder={courseOptions.length ? 'Add a course…' : 'Loading courses…'} />
@@ -304,45 +402,58 @@ export default function ProfilePage() {
                 </SelectContent>
               </Select>
 
-              {/* Selected courses list */}
               {courses.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4 border border-dashed rounded-lg">
-                  No courses added yet — use the dropdown above
-                </p>
+                <div>
+                  <p className="text-sm text-gray-400 text-center py-4 border border-dashed rounded-lg">
+                    No courses added yet — use the dropdown above
+                  </p>
+                  {touched.courses && currentErrors.courses && (
+                    <p className="text-red-500 text-sm mt-1">{currentErrors.courses}</p>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {courses.map(c => (
-                    <div key={c._key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{c.course_title}</p>
-                        <p className="text-xs text-gray-400">{c.course_code}</p>
+                  {courses.map(c => {
+                    const hasGradeError = !c.grade.trim();
+                    return (
+                      <div key={c._key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{c.course_title}</p>
+                          <p className="text-xs text-gray-400">{c.course_code}</p>
+                        </div>
+                        <Select value={c.grade} onValueChange={g => setGrade(c._key, g)}>
+                          <SelectTrigger className={`w-24 ${hasGradeError ? 'border-red-300' : ''}`}>
+                            <SelectValue placeholder="Grade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GRADES.map(g => (
+                              <SelectItem key={g} value={g}>{g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={() => removeCourse(c._key)}
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50 px-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Select value={c.grade} onValueChange={g => setGrade(c._key, g)}>
-                        <SelectTrigger className={`w-24 ${!c.grade ? 'border-red-300' : ''}`}>
-                          <SelectValue placeholder="Grade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {GRADES.map(g => (
-                            <SelectItem key={g} value={g}>{g}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost" size="sm"
-                        onClick={() => removeCourse(c._key)}
-                        className="text-red-400 hover:text-red-600 hover:bg-red-50 px-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  {touched.courses && currentErrors.courses && (
+                    <p className="text-red-500 text-sm mt-1">{currentErrors.courses}</p>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
 
           {/* ── Domain Interests ───────────────────────────────────────── */}
-          <Card>
+          <Card 
+            className={touched.interests && currentErrors.interests ? 'border-red-200' : ''}
+            onBlur={markInterestsTouched}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Domain Interests
@@ -357,44 +468,52 @@ export default function ProfilePage() {
               {interestOptions.length === 0 ? (
                 <p className="text-sm text-gray-400">Loading options…</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {interestOptions.map(opt => {
-                    const sel = interests.includes(opt.name);
-                    return (
-                      <Tooltip key={opt.name}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => toggleItem(interests, setInterests, opt.name, 3, 'interests')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
-                              sel
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
-                            }`}
-                          >
-                            {sel && <CheckCircle className="w-3 h-3" />}
-                            {opt.name}
-                          </button>
-                        </TooltipTrigger>
-                        {opt.description && (
-                          <TooltipContent side="top" className="max-w-xs text-xs">
-                            {opt.description}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              )}
-              {interests.length > 0 && (
-                <p className="text-xs text-gray-500 mt-3">
-                  Selected ({interests.length}/3): {interests.join(', ')}
-                </p>
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {interestOptions.map(opt => {
+                      const sel = interests.includes(opt.name);
+                      return (
+                        <Tooltip key={opt.name}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => toggleItem(interests, setInterests, opt.name, 3, 'interests')}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
+                                sel
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                              }`}
+                            >
+                              {sel && <CheckCircle className="w-3 h-3" />}
+                              {opt.name}
+                            </button>
+                          </TooltipTrigger>
+                          {opt.description && (
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              {opt.description}
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                  {interests.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      Selected ({interests.length}/3): {interests.join(', ')}
+                    </p>
+                  )}
+                  {touched.interests && currentErrors.interests && (
+                    <p className="text-red-500 text-sm mt-2">{currentErrors.interests}</p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
 
           {/* ── Application Domains ──────────────────────────────────────── */}
-          <Card>
+          <Card 
+            className={touched.apps && currentErrors.apps ? 'border-red-200' : ''}
+            onBlur={markAppsTouched}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Application Domains
@@ -409,39 +528,47 @@ export default function ProfilePage() {
               {appOptions.length === 0 ? (
                 <p className="text-sm text-gray-400">Loading options…</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {appOptions.map(opt => {
-                    const sel = apps.includes(opt.name);
-                    return (
-                      <Tooltip key={opt.name}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => toggleItem(apps, setApps, opt.name, 3, 'application domains')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
-                              sel
-                                ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
-                            }`}
-                          >
-                            {sel && <CheckCircle className="w-3 h-3" />}
-                            {opt.name}
-                          </button>
-                        </TooltipTrigger>
-                        {opt.description && (
-                          <TooltipContent side="top" className="max-w-xs text-xs">
-                            {opt.description}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {appOptions.map(opt => {
+                      const sel = apps.includes(opt.name);
+                      return (
+                        <Tooltip key={opt.name}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => toggleItem(apps, setApps, opt.name, 3, 'application domains')}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
+                                sel
+                                  ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                              }`}
+                            >
+                              {sel && <CheckCircle className="w-3 h-3" />}
+                              {opt.name}
+                            </button>
+                          </TooltipTrigger>
+                          {opt.description && (
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              {opt.description}
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                  {touched.apps && currentErrors.apps && (
+                    <p className="text-red-500 text-sm mt-2">{currentErrors.apps}</p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
 
           {/* ── RDIA Priority ────────────────────────────────────────────── */}
-          <Card>
+          <Card 
+            className={touched.rdia && currentErrors.rdia ? 'border-red-200' : ''}
+            onBlur={markRdiaTouched}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 RDIA National Priority
@@ -463,48 +590,61 @@ export default function ProfilePage() {
               {rdiaOptions.length === 0 ? (
                 <p className="text-sm text-gray-400">Loading options…</p>
               ) : (
-                <div className="space-y-3">
-                  {rdiaOptions.map(opt => {
-                    const label = opt.Label;
-                    const desc  = opt.Description;
-                    const sel   = rdia === label;
-                    return (
-                      <button
-                        key={label}
-                        onClick={() => setRdia(sel ? '' : label)}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          sel
-                            ? 'border-amber-400 bg-amber-50 shadow-sm'
-                            : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/40'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${
-                            sel ? 'border-amber-500 bg-amber-500' : 'border-gray-300'
-                          }`}>
-                            {sel && <div className="w-2 h-2 rounded-full bg-white" />}
+                <>
+                  <div className="space-y-3">
+                    {rdiaOptions.map(opt => {
+                      const label = opt.Label;
+                      const desc  = opt.Description;
+                      const sel   = rdia === label;
+                      return (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            setRdia(sel ? '' : label);
+                            setSaveError(null);
+                          }}
+                          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                            sel
+                              ? 'border-amber-400 bg-amber-50 shadow-sm'
+                              : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/40'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${
+                              sel ? 'border-amber-500 bg-amber-500' : 'border-gray-300'
+                            }`}>
+                              {sel && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                            <div>
+                              <p className={`font-semibold text-sm ${sel ? 'text-amber-900' : 'text-gray-800'}`}>
+                                {label}
+                              </p>
+                              {desc && (
+                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className={`font-semibold text-sm ${sel ? 'text-amber-900' : 'text-gray-800'}`}>
-                              {label}
-                            </p>
-                            {desc && (
-                              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {touched.rdia && currentErrors.rdia && (
+                    <p className="text-red-500 text-sm mt-2">{currentErrors.rdia}</p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
 
         </div>
 
-        {/* Bottom save button */}
-        <div className="mt-8 flex justify-end">
+        {/* Bottom save button with validation hint */}
+        <div className="mt-8 flex flex-col items-end gap-2">
+          {!isFormValid() && (
+            <p className="text-red-500 text-sm">
+              Please fix all validation errors before saving
+            </p>
+          )}
           <Button
             onClick={handleSave}
             disabled={saving}

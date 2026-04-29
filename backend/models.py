@@ -1,11 +1,14 @@
 from typing import List, Dict
 
 class User:
-    def __init__(self, email, password_hash, name, user_type='student'):
-        self.email = email; 
-        self.password_hash = password_hash; 
-        self.name = name
-        self.user_type = user_type;
+    def __init__(self, email, password_hash, name, user_type='student',
+                 first_name='', last_name=''):
+        self.email = email
+        self.password_hash = password_hash
+        self.name = name                    # full name kept for backward compatibility
+        self.first_name = first_name        # new: first name only
+        self.last_name = last_name          # new: last name only
+        self.user_type = user_type
 
 class StudentProfile:
     def __init__(self, user_id, elective_courses=None,

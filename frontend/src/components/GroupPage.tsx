@@ -1,4 +1,5 @@
 // frontend/src/components/GroupPage.tsx
+
 import { useState, useEffect, useCallback } from 'react';
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -53,7 +54,13 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
   const [currentUserId,setCurrentUserId]= useState<string | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [finalizing,   setFinalizing]   = useState(false);
-  const [unfinalizing, setUnfinalizing] = useState(false);  // ✅ NEW
+  const [unfinalizing, setUnfinalizing] = useState(false);
+
+  // Error states for create/join forms
+  const [groupNameError, setGroupNameError] = useState('');
+  const [groupNameTouched, setGroupNameTouched] = useState(false);
+  const [joinGroupIdError, setJoinGroupIdError] = useState('');
+  const [joinGroupIdTouched, setJoinGroupIdTouched] = useState(false);
 
   // Readiness (profile completion + weights)
   const [readiness,    setReadiness]    = useState<ReadinessState | null>(null);
@@ -62,6 +69,20 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
   // Weight selection (pre-finalization)
   const [weightMode,   setWeightMode]   = useState<string>('');
   const [savingWeight, setSavingWeight] = useState(false);
+
+  // Validation functions
+  const validateGroupName = (value: string): string => {
+    if (!value.trim()) return "Group name is required";
+    if (value.length < 3) return "Group name must be at least 3 characters";
+    if (value.length > 50) return "Group name must not exceed 50 characters";
+    return "";
+  };
+
+  const validateJoinGroupId = (value: string): string => {
+    if (!value.trim()) return "Group ID is required";
+    if (!value.match(/^GP-[A-Z0-9]{6}$/)) return "Group ID must be in format: GP-XXXXXX (e.g., GP-ABC123)";
+    return "";
+  };
 
   // ── fetch current user once ────────────────────────────────────────────────
 
@@ -90,8 +111,9 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
         setIsFinalized(false);
         onGroupFinalized(false);
       }
-    } catch {
+    } catch (err: any) {
       setHasGroup(false);
+      toast.error(err?.response?.data?.error ?? 'Failed to load group data'); // ✅ Loading error as Toast
     } finally {
       setLoading(false);
     }
@@ -107,12 +129,12 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
     try {
       const res = await api.get('/group/readiness');
       setReadiness(res.data);
-      // Pre-fill weight mode from saved value
       if (res.data.weighting_mode && res.data.weights_selected) {
         setWeightMode(res.data.weighting_mode);
       }
-    } catch {
+    } catch (err: any) {
       setReadiness(null);
+      toast.error(err?.response?.data?.error ?? 'Failed to load readiness data'); // ✅ Readiness error as Toast
     } finally {
       setReadinessLoading(false);
     }
@@ -120,10 +142,18 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
 
   useEffect(() => { fetchReadiness(); }, [fetchReadiness]);
 
-  // ── actions ───────────────────────────────────────────────────────────────
+  // ── Create Group Handler with validation ───────────────────────────────────
 
   const handleCreateGroup = async () => {
-    if (!groupName.trim()) { toast.error('Please enter a group name'); return; }
+    const nameErr = validateGroupName(groupName);
+    setGroupNameError(nameErr);
+    setGroupNameTouched(true);
+    
+    // NO TOAST for validation errors - only inline error under field
+    if (nameErr) {
+      return;
+    }
+    
     setLoading(true);
     try {
       const res = await api.post('/group/create', { group_name: groupName });
@@ -132,15 +162,25 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       setIsFinalized(false);
       setIsLeader(true);
       onGroupFinalized(false);
-      toast.success('Group created!', { description: `Share ID: ${res.data.group.id}` });
+      toast.success('Group created!', { description: `Share ID: ${res.data.group.id}` }); // ✅ Success as Toast
       fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to create group');
+      toast.error(err.response?.data?.error ?? 'Failed to create group'); // ✅ Server error as Toast
     } finally { setLoading(false); }
   };
 
+  // ── Join Group Handler with validation ─────────────────────────────────────
+
   const handleJoinGroup = async () => {
-    if (!joinGroupId.trim()) { toast.error('Please enter a Group ID'); return; }
+    const joinErr = validateJoinGroupId(joinGroupId);
+    setJoinGroupIdError(joinErr);
+    setJoinGroupIdTouched(true);
+    
+    // NO TOAST for validation errors - only inline error under field
+    if (joinErr) {
+      return;
+    }
+    
     setLoading(true);
     try {
       const res = await api.post('/group/join', { group_id: joinGroupId });
@@ -153,22 +193,27 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       const leader = g.members.find((m: any) => m.role === 'Leader');
       setIsLeader(String(leader?.id) === currentUserId);
       setJoinGroupId('');
-      toast.success('Joined group successfully!');
+      setJoinGroupIdError('');
+      setJoinGroupIdTouched(false);
+      toast.success('Joined group successfully!'); // ✅ Success as Toast
       fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to join group');
+      toast.error(err.response?.data?.error ?? 'Failed to join group'); // ✅ Server error as Toast
     } finally { setLoading(false); }
   };
 
   const handleSaveWeights = async () => {
-    if (!weightMode) { toast.error('Please select a weighting mode'); return; }
+    if (!weightMode) {
+      toast.error('Please select a weighting mode'); // ✅ Validation error as Toast (no inline field for this)
+      return;
+    }
     setSavingWeight(true);
     try {
       await api.put('/group/weights', { weighting_mode: weightMode });
-      toast.success('Weighting preference saved!');
+      toast.success('Weighting preference saved!'); // ✅ Success as Toast
       await fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to save weights');
+      toast.error(err.response?.data?.error ?? 'Failed to save weights'); // ✅ Server error as Toast
     } finally { setSavingWeight(false); }
   };
 
@@ -178,18 +223,17 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       const res = await api.post('/group/finalize');
       setIsFinalized(true);
       onGroupFinalized(true);
-      toast.success(res.data.message);
+      toast.success(res.data.message); // ✅ Success as Toast
     } catch (err: any) {
       const detail = err.response?.data;
       if (detail?.incomplete_members?.length) {
-        toast.error(`Incomplete profiles: ${detail.incomplete_members.join(', ')}`);
+        toast.error(`Incomplete profiles: ${detail.incomplete_members.join(', ')}`); // ✅ Server error as Toast
       } else {
-        toast.error(detail?.error ?? 'Failed to finalize group');
+        toast.error(detail?.error ?? 'Failed to finalize group'); // ✅ Server error as Toast
       }
     } finally { setFinalizing(false); }
   };
 
-  // ✅ NEW: Handle unfinalize action
   const handleUnfinalize = async () => {
     if (!confirm(
       '⚠️ WARNING: Unfinalizing the group will:\n\n' +
@@ -204,12 +248,11 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       const res = await api.post('/group/unfinalize');
       setIsFinalized(false);
       onGroupFinalized(false);
-      toast.success(res.data.message);
-      // Refresh group data and readiness
+      toast.success(res.data.message); // ✅ Success as Toast
       await fetchGroup();
       await fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to unfinalize group');
+      toast.error(err.response?.data?.error ?? 'Failed to unfinalize group'); // ✅ Server error as Toast
     } finally {
       setUnfinalizing(false);
     }
@@ -222,15 +265,15 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       setHasGroup(false); setGroupId(''); setGroupName('');
       setIsFinalized(false); setIsLeader(false); setReadiness(null);
       onGroupFinalized(false);
-      toast.success('Left group successfully');
+      toast.success('Left group successfully'); // ✅ Success as Toast
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to leave group');
+      toast.error(err.response?.data?.error ?? 'Failed to leave group'); // ✅ Server error as Toast
     }
   };
 
   const copyGroupId = () => {
     navigator.clipboard.writeText(groupId).catch(() => {});
-    toast.success('Group ID copied!');
+    toast.success('Group ID copied!'); // ✅ Success as Toast
   };
 
   // ── derived state ──────────────────────────────────────────────────────────
@@ -264,6 +307,8 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
             <TabsTrigger value="create">Create Group</TabsTrigger>
             <TabsTrigger value="join">Join Group</TabsTrigger>
           </TabsList>
+          
+          {/* CREATE GROUP TAB - with inline error message under field */}
           <TabsContent value="create">
             <Card>
               <CardHeader>
@@ -273,11 +318,26 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                 <CardDescription>Start a group and share the ID with your teammates</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
+                <div className="space-y-1">
                   <Label htmlFor="gname">Group Name</Label>
-                  <Input id="gname" className="mt-1" placeholder="e.g., Team Alpha"
-                    value={groupName} onChange={e => setGroupName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleCreateGroup()} />
+                  <Input 
+                    id="gname" 
+                    className="bg-transparent"
+                    placeholder="e.g., Team Alpha"
+                    value={groupName} 
+                    onChange={e => {
+                      setGroupName(e.target.value);
+                      if (groupNameTouched) setGroupNameError(validateGroupName(e.target.value));
+                    }}
+                    onBlur={() => {
+                      setGroupNameTouched(true);
+                      setGroupNameError(validateGroupName(groupName));
+                    }}
+                    onKeyDown={e => e.key === 'Enter' && handleCreateGroup()} 
+                  />
+                  {groupNameError && groupNameTouched && (
+                    <p className="text-red-500 text-sm mt-1">{groupNameError}</p>
+                  )}
                 </div>
                 <Button onClick={handleCreateGroup} disabled={loading} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600">
                   {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
@@ -286,6 +346,8 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
               </CardContent>
             </Card>
           </TabsContent>
+          
+          {/* JOIN GROUP TAB - with inline error message under field */}
           <TabsContent value="join">
             <Card>
               <CardHeader>
@@ -295,11 +357,26 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                 <CardDescription>Enter the Group ID given by your team leader</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
+                <div className="space-y-1">
                   <Label htmlFor="jid">Group ID</Label>
-                  <Input id="jid" className="mt-1" placeholder="e.g., GP-ABC123"
-                    value={joinGroupId} onChange={e => setJoinGroupId(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleJoinGroup()} />
+                  <Input 
+                    id="jid" 
+                    className="bg-transparent"
+                    placeholder="e.g., GP-ABC123"
+                    value={joinGroupId} 
+                    onChange={e => {
+                      setJoinGroupId(e.target.value.toUpperCase());
+                      if (joinGroupIdTouched) setJoinGroupIdError(validateJoinGroupId(e.target.value));
+                    }}
+                    onBlur={() => {
+                      setJoinGroupIdTouched(true);
+                      setJoinGroupIdError(validateJoinGroupId(joinGroupId));
+                    }}
+                    onKeyDown={e => e.key === 'Enter' && handleJoinGroup()} 
+                  />
+                  {joinGroupIdError && joinGroupIdTouched && (
+                    <p className="text-red-500 text-sm mt-1">{joinGroupIdError}</p>
+                  )}
                 </div>
                 <Button onClick={handleJoinGroup} disabled={loading} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600">
                   {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
@@ -537,7 +614,6 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                 </div>
               </div>
               <div className="flex gap-2">
-                {/* ✅ NEW: Unfinalize button - only visible to leader */}
                 {isLeader && (
                   <Button
                     variant="outline"

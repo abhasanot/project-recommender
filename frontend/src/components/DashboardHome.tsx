@@ -157,7 +157,7 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
             </div>
             <CardTitle>Discover Trends</CardTitle>
             <CardDescription>
-              Explore emerging topics and gaps in Computer Science
+              Explore emerging topics and trends in Computer Science
             </CardDescription>
           </CardHeader>
           <CardContent>

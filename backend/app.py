@@ -212,25 +212,58 @@ def health():
 
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
+    import re
+
+    # ── Regex patterns ────────────────────────────────────────────────────────
+    EMAIL_RE    = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+    PASSWORD_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
+    NAME_RE     = re.compile(r'^[a-zA-Z\u0600-\u06FF\s\'\-]+$')   # letters (Latin + Arabic), spaces, apostrophe, hyphen
+
     data = request.json or {}
-    for field in ["email", "password", "name", "user_type"]:
-        if field not in data:
+
+    # ── Required fields (first_name / last_name replace plain name) ───────────
+    for field in ["email", "password", "first_name", "last_name", "user_type"]:
+        if not data.get(field, "").strip():
             return jsonify({"error": f"Missing required field: {field}"}), 400
+
+    first_name = data["first_name"].strip()
+    last_name  = data["last_name"].strip()
+    full_name  = f"{first_name} {last_name}"
+
+    # ── Name validation (no digits or special symbols) ────────────────────────
+    if not NAME_RE.match(first_name):
+        return jsonify({"error": "First name must contain letters only (no digits or special characters)"}), 400
+    if not NAME_RE.match(last_name):
+        return jsonify({"error": "Last name must contain letters only (no digits or special characters)"}), 400
+
+    # ── Email validation ──────────────────────────────────────────────────────
+    if not EMAIL_RE.match(data["email"]):
+        return jsonify({"error": "Invalid email format"}), 400
+
+    # ── Password validation ───────────────────────────────────────────────────
+    if not PASSWORD_RE.match(data["password"]):
+        return jsonify({
+            "error": (
+                "Password must be at least 8 characters and include an uppercase letter, "
+                "a lowercase letter, a digit, and a special character (@$!%*?&)"
+            )
+        }), 400
 
     if db.get_user_by_email(data["email"]):
         return jsonify({"error": "Email already registered"}), 409
 
     hashed = bcrypt.generate_password_hash(data["password"]).decode("utf-8")
     user = User(
-        email=data["email"], password_hash=hashed, name=data["name"],
-        user_type=data["user_type"],
+        email=data["email"], password_hash=hashed, name=full_name,
+        user_type=data["user_type"], first_name=first_name, last_name=last_name,
     )
     user_id = db.create_user(user)
     session.update({"user_id": user_id, "user_email": user.email,
                     "user_name": user.name, "user_type": user.user_type})
     return jsonify({"message": "User created successfully",
                     "user": {"id": user_id, "email": user.email,
-                             "name": user.name, "user_type": user.user_type}}), 201
+                             "name": user.name, "first_name": first_name,
+                             "last_name": last_name, "user_type": user.user_type}}), 201
 
 
 @app.route("/api/auth/login", methods=["POST"])
