@@ -90,15 +90,26 @@ const CHART_DIMENSIONS = [
   { value: 'rdia',        label: 'RDIA Priority' },
 ];
 
+// ── Converts semester code to a human-readable label ────────────────────────
+// The system stores semesters as numeric codes: 10 = First, 20 = Second, 30 = Third.
+// This function is used for display only; the raw code is still sent to the API.
+function semesterLabel(code: string): string {
+  if (code === '10') return 'First';
+  if (code === '20') return 'Second';
+  if (code === '30') return 'Third';
+  return code; // fallback: return code as-is if unrecognised
+}
+
 // ── Multi-select chip component with "All" option ───────────────────────────
 
 function MultiSelect({
-  label, options, selected, onToggle,
+  label, options, selected, onToggle, getLabel,
 }: {
   label: string;
   options: string[];
   selected: string[];
   onToggle: (v: string) => void;
+  getLabel?: (v: string) => string; // optional display-label mapper (value stays raw)
 }) {
   const [open, setOpen] = useState(false);
   
@@ -153,6 +164,8 @@ function MultiSelect({
             
             {options.map(opt => {
               const isSelected = selected.includes(opt);
+              // Use getLabel for display if provided; otherwise show the raw value
+              const displayText = getLabel ? getLabel(opt) : opt;
               return (
                 <button
                   key={opt}
@@ -164,7 +177,7 @@ function MultiSelect({
                     ${isSelected ? 'bg-violet-500 border-violet-500' : 'border-gray-300'}`}>
                     {isSelected && <span className="text-white text-xs leading-none">✓</span>}
                   </div>
-                  <span className="truncate">{opt}</span>
+                  <span className="truncate">{displayText}</span>
                 </button>
               );
             })}
@@ -223,6 +236,7 @@ export default function TrendsPage() {
   const [activeTab,   setActiveTab]   = useState('timeline');
 
   // ── Build query string from active filters ─────────────────────────────────
+  // Semester codes (10, 20, 30) are sent as-is to the API; display labels are UI-only.
 
   const filterQuery = useMemo(() => {
     const params = new URLSearchParams();
@@ -316,8 +330,19 @@ export default function TrendsPage() {
 
             <MultiSelect label="Year"        options={filterOpts.years}
               selected={activeFilters.years}        onToggle={v => toggle('years', v)} />
-            <MultiSelect label="Semester"    options={filterOpts.semesters.map(s => s.code)}
-              selected={activeFilters.semesters}    onToggle={v => toggle('semesters', v)} />
+
+            {/*
+              Semester: options are raw codes (10, 20, 30) passed to the API,
+              but getLabel renders them as "First", "Second", "Third" for the user.
+            */}
+            <MultiSelect
+              label="Semester"
+              options={filterOpts.semesters.map(s => s.code)}
+              selected={activeFilters.semesters}
+              onToggle={v => toggle('semesters', v)}
+              getLabel={semesterLabel}
+            />
+
             <MultiSelect label="Interest"    options={filterOpts.interests}
               selected={activeFilters.interests}    onToggle={v => toggle('interests', v)} />
             <MultiSelect label="Application" options={filterOpts.applications}
@@ -339,14 +364,14 @@ export default function TrendsPage() {
             </button>
           </div>
 
-          {/* Active filter chips */}
+          {/* Active filter chips — show human-readable label for semesters */}
           {hasFilters && (
             <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
               {Object.entries(activeFilters).flatMap(([dim, vals]) =>
                 vals.map(v => (
                   <span key={`${dim}-${v}`}
                     className="flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-800 text-xs rounded-full">
-                    {v}
+                    {dim === 'semesters' ? semesterLabel(v) : v}
                     <button onClick={() => toggle(dim as keyof ActiveFilters, v)}>
                       <X className="w-2.5 h-2.5" />
                     </button>
