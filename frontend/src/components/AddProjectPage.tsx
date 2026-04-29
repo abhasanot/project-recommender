@@ -578,7 +578,7 @@ export default function AddProjectPage() {
             </div>
 
             <p className="text-xs text-gray-500">
-              Once added, this project will be available in the recommender and trend analysis immediately.
+              Once added, this project will be immediately available in the recommender and trend analysis, and can not be edited or deleted afterword.
             </p>
 
             <div className="flex gap-3 pt-1">
