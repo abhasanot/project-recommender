@@ -42,7 +42,7 @@ interface Project {
 // ── Semester code → readable label ───────────────────────────────────────────
 
 function semesterLabel(code: string): string {
-  return code === "10" ? "First" : code === "20" ? "Second" : code === "30" ? "Summer" : code;
+  return code === "10" ? "First" : code === "20" ? "Second" : code === "30" ? "Third" : code;
 }
 
 // ── Small highlight helper ────────────────────────────────────────────────────
