@@ -88,6 +88,8 @@ export default function AddProjectPage() {
   const [idChecking, setIdChecking] = useState(false);
   const [idAvailable, setIdAvailable] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [acknowledgedNoDelete, setAcknowledgedNoDelete] = useState(false);
+  const [ackError, setAckError] = useState(false);
 
   // Fetch ACM flat list once
   useEffect(() => {
@@ -230,6 +232,8 @@ export default function AddProjectPage() {
     }
 
     setError("");
+    setAcknowledgedNoDelete(false);
+    setAckError(false);
     setShowConfirm(true);
   };
 
@@ -577,9 +581,30 @@ export default function AddProjectPage() {
               <Row label="ACM codes"   value={form.acm.join(", ")} />
             </div>
 
-            <p className="text-xs text-gray-500">
-              Once added, this project will be immediately available in the recommender and trend analysis, and can not be edited or deleted afterword.
-            </p>
+          
+
+            {/* ── Acknowledgement checkbox ── */}
+            <div className="space-y-1">
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={acknowledgedNoDelete}
+                  onChange={e => {
+                    setAcknowledgedNoDelete(e.target.checked);
+                    if (e.target.checked) setAckError(false);
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-xs text-gray-500">
+                  I understand that once this project is added, it will be integrated into the recommender and trend analysis and <span className="font-semibold text-gray-700">cannot be deleted or modified</span>.
+                </span>
+              </label>
+              {ackError && (
+                <p className="text-xs text-red-500 pl-6">
+                  You must acknowledge this before proceeding.
+                </p>
+              )}
+            </div>
 
             <div className="flex gap-3 pt-1">
               <Button variant="outline" className="flex-1" onClick={() => setShowConfirm(false)}>
@@ -587,7 +612,13 @@ export default function AddProjectPage() {
               </Button>
               <Button
                 className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
-                onClick={handleSubmit}
+                onClick={() => {
+                  if (!acknowledgedNoDelete) {
+                    setAckError(true);
+                    return;
+                  }
+                  handleSubmit();
+                }}
               >
                 Confirm &amp; Add
               </Button>
@@ -626,9 +657,9 @@ function LabeledInput({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2">
-      <span className="text-gray-500 w-28 shrink-0">{label}:</span>
-      <span className="text-gray-800 font-medium">{value || "—"}</span>
+    <div className="flex flex-col sm:flex-row sm:gap-2">
+      <span className="text-gray-500 sm:w-28 sm:shrink-0 font-medium">{label}:</span>
+      <span className="text-gray-800 font-medium break-words">{value || "—"}</span>
     </div>
   );
 }
