@@ -187,3 +187,91 @@
 html {
   font-size: var(--font-size);
 }
+/* ============================================
+   Responsive and Utility Fixes
+   These ensure proper display across all device sizes
+   ============================================ */
+
+/* Prevent horizontal overflow on all devices */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+  position: relative;
+}
+
+/* All elements inherit proper box sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Ensure images and SVGs scale properly */
+img, svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Text overflow protection */
+.break-words {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.break-all {
+  word-break: break-all;
+}
+
+/* Container padding adjustments for small screens */
+@media (max-width: 640px) {
+  .container, [class*="p-"] {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Reduce padding on cards for mobile */
+  .card, [class*="Card"] {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 768px) {
+  .container, [class*="p-8"] {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Make tables scrollable on small screens if needed */
+@media (max-width: 640px) {
+  .responsive-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+/* Ensure dropdown menus appear above other content */
+[role="listbox"],
+[data-radix-popper-content-wrapper] > div,
+.radix-select-content,
+.dropdown-menu {
+  z-index: 50;
+}
+
+/* Fix for sticky headers on mobile */
+@media (max-width: 640px) {
+  .sticky-mobile {
+    position: relative;
+  }
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 640px) {
+  button, 
+  [role="button"],
+  .clickable {
+    min-height: 44px;
+  }
+}

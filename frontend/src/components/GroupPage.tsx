@@ -19,8 +19,7 @@ import {
 import { toast } from 'sonner';
 import api from '../services/api';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
+// Types
 interface MemberStatus {
   id:               number;
   name:             string;
@@ -42,8 +41,7 @@ interface GroupPageProps {
   groupFinalized:   boolean;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
+// Component
 export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPageProps) {
   const [groupName,    setGroupName]    = useState('');
   const [groupId,      setGroupId]      = useState('');
@@ -84,14 +82,12 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
     return "";
   };
 
-  // ── fetch current user once ────────────────────────────────────────────────
-
+  // fetch current user once
   useEffect(() => {
     api.get('/auth/me').then(r => setCurrentUserId(String(r.data.id))).catch(() => {});
   }, []);
 
-  // ── fetch group when user id is known ─────────────────────────────────────
-
+  // fetch group when user id is known
   const fetchGroup = useCallback(async () => {
     if (!currentUserId) return;
     setLoading(true);
@@ -113,7 +109,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       }
     } catch (err: any) {
       setHasGroup(false);
-      toast.error(err?.response?.data?.error ?? 'Failed to load group data'); // ✅ Loading error as Toast
+      toast.error(err?.response?.data?.error ?? 'Failed to load group data');
     } finally {
       setLoading(false);
     }
@@ -121,8 +117,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
 
   useEffect(() => { fetchGroup(); }, [fetchGroup]);
 
-  // ── fetch readiness whenever group exists ──────────────────────────────────
-
+  // fetch readiness whenever group exists
   const fetchReadiness = useCallback(async () => {
     if (!hasGroup) return;
     setReadinessLoading(true);
@@ -134,7 +129,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       }
     } catch (err: any) {
       setReadiness(null);
-      toast.error(err?.response?.data?.error ?? 'Failed to load readiness data'); // ✅ Readiness error as Toast
+      toast.error(err?.response?.data?.error ?? 'Failed to load readiness data');
     } finally {
       setReadinessLoading(false);
     }
@@ -142,14 +137,12 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
 
   useEffect(() => { fetchReadiness(); }, [fetchReadiness]);
 
-  // ── Create Group Handler with validation ───────────────────────────────────
-
+  // Create Group Handler with validation
   const handleCreateGroup = async () => {
     const nameErr = validateGroupName(groupName);
     setGroupNameError(nameErr);
     setGroupNameTouched(true);
     
-    // NO TOAST for validation errors - only inline error under field
     if (nameErr) {
       return;
     }
@@ -162,21 +155,19 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       setIsFinalized(false);
       setIsLeader(true);
       onGroupFinalized(false);
-      toast.success('Group created!', { description: `Share ID: ${res.data.group.id}` }); // ✅ Success as Toast
+      toast.success('Group created!', { description: `Share ID: ${res.data.group.id}` });
       fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to create group'); // ✅ Server error as Toast
+      toast.error(err.response?.data?.error ?? 'Failed to create group');
     } finally { setLoading(false); }
   };
 
-  // ── Join Group Handler with validation ─────────────────────────────────────
-
+  // Join Group Handler with validation
   const handleJoinGroup = async () => {
     const joinErr = validateJoinGroupId(joinGroupId);
     setJoinGroupIdError(joinErr);
     setJoinGroupIdTouched(true);
     
-    // NO TOAST for validation errors - only inline error under field
     if (joinErr) {
       return;
     }
@@ -195,25 +186,25 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       setJoinGroupId('');
       setJoinGroupIdError('');
       setJoinGroupIdTouched(false);
-      toast.success('Joined group successfully!'); // ✅ Success as Toast
+      toast.success('Joined group successfully!');
       fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to join group'); // ✅ Server error as Toast
+      toast.error(err.response?.data?.error ?? 'Failed to join group');
     } finally { setLoading(false); }
   };
 
   const handleSaveWeights = async () => {
     if (!weightMode) {
-      toast.error('Please select a weighting mode'); // ✅ Validation error as Toast (no inline field for this)
+      toast.error('Please select a weighting mode');
       return;
     }
     setSavingWeight(true);
     try {
       await api.put('/group/weights', { weighting_mode: weightMode });
-      toast.success('Weighting preference saved!'); // ✅ Success as Toast
+      toast.success('Weighting preference saved!');
       await fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to save weights'); // ✅ Server error as Toast
+      toast.error(err.response?.data?.error ?? 'Failed to save weights');
     } finally { setSavingWeight(false); }
   };
 
@@ -223,20 +214,20 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       const res = await api.post('/group/finalize');
       setIsFinalized(true);
       onGroupFinalized(true);
-      toast.success(res.data.message); // ✅ Success as Toast
+      toast.success(res.data.message);
     } catch (err: any) {
       const detail = err.response?.data;
       if (detail?.incomplete_members?.length) {
-        toast.error(`Incomplete profiles: ${detail.incomplete_members.join(', ')}`); // ✅ Server error as Toast
+        toast.error(`Incomplete profiles: ${detail.incomplete_members.join(', ')}`);
       } else {
-        toast.error(detail?.error ?? 'Failed to finalize group'); // ✅ Server error as Toast
+        toast.error(detail?.error ?? 'Failed to finalize group');
       }
     } finally { setFinalizing(false); }
   };
 
   const handleUnfinalize = async () => {
     if (!confirm(
-      '⚠️ WARNING: Unfinalizing the group will:\n\n' +
+      'WARNING: Unfinalizing the group will:\n\n' +
       '• Allow new members to join\n' +
       '• Require re-finalization to generate new recommendations\n' +
       '• Keep existing recommendations but they will be outdated\n\n' +
@@ -248,11 +239,11 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       const res = await api.post('/group/unfinalize');
       setIsFinalized(false);
       onGroupFinalized(false);
-      toast.success(res.data.message); // ✅ Success as Toast
+      toast.success(res.data.message);
       await fetchGroup();
       await fetchReadiness();
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to unfinalize group'); // ✅ Server error as Toast
+      toast.error(err.response?.data?.error ?? 'Failed to unfinalize group');
     } finally {
       setUnfinalizing(false);
     }
@@ -265,26 +256,24 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
       setHasGroup(false); setGroupId(''); setGroupName('');
       setIsFinalized(false); setIsLeader(false); setReadiness(null);
       onGroupFinalized(false);
-      toast.success('Left group successfully'); // ✅ Success as Toast
+      toast.success('Left group successfully');
     } catch (err: any) {
-      toast.error(err.response?.data?.error ?? 'Failed to leave group'); // ✅ Server error as Toast
+      toast.error(err.response?.data?.error ?? 'Failed to leave group');
     }
   };
 
   const copyGroupId = () => {
     navigator.clipboard.writeText(groupId).catch(() => {});
-    toast.success('Group ID copied!'); // ✅ Success as Toast
+    toast.success('Group ID copied!');
   };
 
-  // ── derived state ──────────────────────────────────────────────────────────
-
+  // derived state
   const membersCount    = readiness?.member_statuses?.length ?? 0;
   const allProfilesDone = readiness?.all_profiles_complete ?? false;
   const weightsSet      = readiness?.weights_selected ?? false;
   const canFinalize     = membersCount >= 2 && allProfilesDone && weightsSet;
 
-  // ── loading ────────────────────────────────────────────────────────────────
-
+  // loading
   if (loading && !hasGroup) {
     return (
       <div className="p-8 flex items-center justify-center h-64">
@@ -293,11 +282,10 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
     );
   }
 
-  // ── no group yet ───────────────────────────────────────────────────────────
-
+  // no group yet
   if (!hasGroup) {
     return (
-      <div className="p-8 max-w-2xl mx-auto">
+      <div className="p-4 sm:p-8 max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl text-gray-900 mb-2">My Group</h1>
           <p className="text-gray-600">Create a new group or join an existing one</p>
@@ -308,7 +296,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
             <TabsTrigger value="join">Join Group</TabsTrigger>
           </TabsList>
           
-          {/* CREATE GROUP TAB - with inline error message under field */}
+          {/* Create Group Tab - with inline error message under field */}
           <TabsContent value="create">
             <Card>
               <CardHeader>
@@ -347,7 +335,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
             </Card>
           </TabsContent>
           
-          {/* JOIN GROUP TAB - with inline error message under field */}
+          {/* Join Group Tab - with inline error message under field */}
           <TabsContent value="join">
             <Card>
               <CardHeader>
@@ -390,52 +378,65 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
     );
   }
 
-  // ── has group ──────────────────────────────────────────────────────────────
-
+  // has group
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 md:p-8 max-w-3xl mx-auto space-y-6">
       <div className="mb-2">
-        <h1 className="text-3xl text-gray-900 mb-1">My Group</h1>
+        <h1 className="text-2xl sm:text-3xl text-gray-900 mb-1">My Group</h1>
         <p className="text-gray-500 text-sm">Manage your group and track readiness for finalization</p>
       </div>
 
-      {/* ── Group header ─────────────────────────────────────────────────── */}
+      {/* Group header - responsive grid layout */}
       <Card className="border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <CardTitle className="text-xl">{groupName}</CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start md:items-center">
+            {/* Left side - group name and ID */}
+            <div className="min-w-0">
+              <CardTitle className="text-xl break-words">{groupName}</CardTitle>
               <CardDescription className="flex items-center gap-1.5 mt-1 flex-wrap">
                 Group ID:
-                <code className="bg-white px-2 py-0.5 rounded border text-indigo-700 font-mono text-xs">
+                <code className="bg-white px-2 py-0.5 rounded border text-indigo-700 font-mono text-xs break-all">
                   {groupId}
                 </code>
-                <button type="button" onClick={copyGroupId} className="text-indigo-400 hover:text-indigo-600" title="Copy group ID"
-                aria-label="Copy group ID">
+                <button 
+                  type="button" 
+                  onClick={copyGroupId} 
+                  className="text-indigo-400 hover:text-indigo-600 flex-shrink-0" 
+                  title="Copy group ID"
+                  aria-label="Copy group ID"
+                >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
               </CardDescription>
             </div>
-            <div className="flex gap-2 flex-wrap">
+
+            {/* Right side - badges */}
+            <div className="flex gap-2 flex-wrap justify-start md:justify-end">
               {isFinalized ? (
-                <Badge className="bg-green-100 text-green-700 border-green-200 flex items-center gap-1">
+                <Badge className="bg-green-100 text-green-700 border-green-200 flex items-center gap-1 whitespace-nowrap">
                   <CheckCircle className="w-3 h-3" /> Finalized
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-amber-600 border-amber-300">Not Finalized</Badge>
+                <Badge variant="outline" className="text-amber-600 border-amber-300 whitespace-nowrap">
+                  Not Finalized
+                </Badge>
               )}
-              {isLeader && <Badge className="bg-indigo-100 text-indigo-700">You are Leader</Badge>}
+              {isLeader && (
+                <Badge className="bg-indigo-100 text-indigo-700 whitespace-nowrap">
+                  You are Leader
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* ── Members + profile status ──────────────────────────────────────── */}
+      {/* Members and profile status section - responsive member cards */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-600" />
-            Members &amp; Profile Status
+            Members and Profile Status
           </CardTitle>
           <CardDescription>
             All members must complete their profiles before the group can be finalized
@@ -444,22 +445,25 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
         <CardContent>
           {readinessLoading ? (
             <div className="flex items-center gap-2 text-gray-400 py-4">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading status…
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading status...
             </div>
           ) : readiness?.member_statuses?.length ? (
             <div className="space-y-2">
               {readiness.member_statuses.map(m => (
-                <div key={m.id} className={`flex items-center justify-between p-3 rounded-lg border ${
-                  m.profile_complete ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <User className={`w-4 h-4 ${m.profile_complete ? 'text-green-600' : 'text-amber-500'}`} />
-                    <div>
-                      <span className="text-sm font-medium text-gray-800">{m.name}</span>
-                      <span className="text-xs text-gray-500 ml-2">{m.email}</span>
+                <div 
+                  key={m.id} 
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border gap-3 ${
+                    m.profile_complete ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className={`w-4 h-4 flex-shrink-0 ${m.profile_complete ? 'text-green-600' : 'text-amber-500'}`} />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-gray-800 break-words">{m.name}</span>
+                      <span className="text-xs text-gray-500 ml-2 break-all">{m.email}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Badge className={m.role === 'Leader'
                       ? 'bg-indigo-100 text-indigo-700 text-xs'
                       : 'bg-gray-100 text-gray-600 text-xs'}>{m.role}</Badge>
@@ -492,17 +496,17 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
         </CardContent>
       </Card>
 
-      {/* ── Weight selection (leader only, pre-finalization) ──────────────── */}
+      {/* Weight selection (leader only, pre-finalization) - responsive weight cards */}
       {!isFinalized && isLeader && (
         <Card className={weightsSet ? 'border-green-200' : 'border-indigo-200'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 flex-wrap">
               <Scale className="w-5 h-5 text-purple-600" />
               Step 2: Select Recommendation Weights
               {weightsSet && <CheckCircle className="w-4 h-4 text-green-500" />}
             </CardTitle>
             <CardDescription>
-              Choose how the system balances academic competency vs. personal interests when generating recommendations.
+              Choose how the system balances academic competency versus personal interests when generating recommendations.
               {!weightsSet && <span className="ml-1 font-medium text-amber-600">Required before finalizing.</span>}
             </CardDescription>
           </CardHeader>
@@ -519,16 +523,16 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                   }`}
                   onClick={() => setWeightMode(opt.value)}
                 >
-                  <RadioGroupItem value={opt.value} id={opt.value} className="mt-0.5" />
-                  <div>
-                    <Label htmlFor={opt.value} className="font-medium cursor-pointer">{opt.label}</Label>
-                    <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                  <RadioGroupItem value={opt.value} id={opt.value} className="mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <Label htmlFor={opt.value} className="font-medium cursor-pointer break-words">{opt.label}</Label>
+                    <p className="text-xs text-gray-500 mt-0.5 break-words">{opt.desc}</p>
                   </div>
                 </div>
               ))}
             </RadioGroup>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <Button
                 onClick={handleSaveWeights}
                 disabled={!weightMode || savingWeight}
@@ -547,7 +551,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
         </Card>
       )}
 
-      {/* ── Finalize + readiness summary ─────────────────────────────────── */}
+      {/* Finalize and readiness summary - responsive button section */}
       {!isFinalized && (
         <Card className={canFinalize ? 'border-green-300 bg-green-50' : 'border-gray-200'}>
           <CardHeader>
@@ -569,20 +573,22 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
               ].map(({ label, met }) => (
                 <div key={label} className={`flex items-center gap-2 text-sm ${met ? 'text-green-700' : 'text-gray-500'}`}>
                   <CheckCircle className={`w-4 h-4 flex-shrink-0 ${met ? 'text-green-500' : 'text-gray-300'}`} />
-                  {label}
+                  <span className="break-words">{label}</span>
                 </div>
               ))}
             </div>
 
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex flex-col sm:flex-row gap-3">
               {isLeader && (
                 <Button
                   onClick={handleFinalize}
                   disabled={!canFinalize || finalizing}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 w-full sm:w-auto"
                 >
-                  {finalizing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
-                  {finalizing ? 'Finalizing…' : 'Finalize Group & Generate Recommendations'}
+                  {finalizing ? <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" /> : <Lock className="w-4 h-4 mr-2 flex-shrink-0" />}
+                  <span className="whitespace-normal break-words">
+                    {finalizing ? 'Finalizing...' : 'Finalize Group and Generate Recommendations'}
+                  </span>
                 </Button>
               )}
               {!isLeader && (
@@ -590,20 +596,24 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                   Only the group leader can finalize the group.
                 </p>
               )}
-              <Button variant="outline" onClick={handleLeaveGroup}
-                className="text-red-600 border-red-200 hover:bg-red-50">
-                <LogOut className="w-4 h-4 mr-2" /> Leave Group
+              <Button 
+                variant="outline" 
+                onClick={handleLeaveGroup}
+                className="text-red-600 border-red-200 hover:bg-red-50 w-full sm:w-auto"
+              >
+                <LogOut className="w-4 h-4 mr-2 flex-shrink-0" /> 
+                <span>Leave Group</span>
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* ── Already finalized ─────────────────────────────────────────────── */}
+      {/* Already finalized section */}
       {isFinalized && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="py-5">
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3 text-green-700">
                 <CheckCircle className="w-6 h-6 flex-shrink-0" />
                 <div>
@@ -613,7 +623,7 @@ export default function GroupPage({ onGroupFinalized, groupFinalized }: GroupPag
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-shrink-0">
                 {isLeader && (
                   <Button
                     variant="outline"
