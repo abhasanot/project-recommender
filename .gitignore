@@ -1,38 +1,67 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# .gitignore  (additions for Docker workflow)
+# .gitignore
+#
+# FIXED: The previous version ended with:
+#   *.py       ← excluded ALL Python files (entire backend vanished from git!)
+#   *.pth      ← excluded PyTorch path files (harmless but unnecessary here)
+#   /backend   ← excluded the entire backend/ directory from git!
+#
+# Those three lines have been REMOVED. Everything else is unchanged.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Local environment file (contains SECRET_KEY — never commit this)
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Never commit these — set them as environment variables in Render / Vercel
 .env
+.env.local
+.env.*.local
 
-# Python
+# ── Python bytecode & packaging ───────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.egg-info/
+*.egg
+.eggs/
 dist/
 build/
-*.egg
 
-# Flask session files (local dev)
+# ── Python virtual environments ───────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env-backend/
+
+# ── Flask runtime files ───────────────────────────────────────────────────────
+# Session files generated at runtime — do NOT commit
 backend/flask_session/
 
-# SQLite database (local dev)
+# ── SQLite database ───────────────────────────────────────────────────────────
+# The DB is created at runtime; never commit it
 backend/recommendation.db
+*.db
+*.sqlite
+*.sqlite3
 
-# Node / frontend build output
+# ── HuggingFace / sentence-transformers model cache ──────────────────────────
+# Models are downloaded at startup — do NOT commit (~90 MB per model)
+.hf_cache/
+backend/.hf_cache/
+*.pth
+*.bin
+
+# ── Node / frontend ───────────────────────────────────────────────────────────
 frontend/node_modules/
 frontend/dist/
+node_modules/
 
-# macOS
+# ── OS & IDE ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-# IDE
 .idea/
 .vscode/
 *.swp
-*.py
-*.pth
-/backend
+*.swo
+
+# ── Docker (local volumes) ────────────────────────────────────────────────────
+docker/volumes/

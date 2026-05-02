@@ -1,0 +1,72 @@
+# render.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Render Blueprint — defines the Mu'een backend service.
+#
+# Place this file in the ROOT of your repository.
+# Connect the repo in the Render dashboard and Render will use this file.
+#
+# Docs: https://render.com/docs/blueprint-spec
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: mueen-backend
+    runtime: python
+    region: oregon          # pick the region closest to your users
+    plan: starter           # free tier — upgrade to standard for persistent disk
+
+    # ── Build ─────────────────────────────────────────────────────────────────
+    # Render runs this from the repo ROOT, so we cd into backend/ first.
+    buildCommand: pip install -r backend/requirements.txt
+
+    # ── Start ─────────────────────────────────────────────────────────────────
+    # gunicorn flags:
+    #   --chdir backend      → sets working dir so `from database import ...` resolves
+    #   app:app              → module "app", Flask variable "app"
+    #   --workers 1          → SBERT model is large; 1 worker keeps RAM manageable
+    #   --threads 4          → handle concurrent requests within 1 worker
+    #   --timeout 300        → allow 5 min for first recommendation (SBERT inference)
+    #   --bind 0.0.0.0:$PORT → Render injects $PORT automatically
+    startCommand: gunicorn --chdir backend app:app --workers 1 --threads 4 --timeout 300 --bind 0.0.0.0:$PORT
+
+    # ── Health check ──────────────────────────────────────────────────────────
+    healthCheckPath: /api/health
+
+    # ── Environment variables ─────────────────────────────────────────────────
+    # ⚠️  SECRET_KEY and CORS_ORIGINS must be set in the Render dashboard.
+    #     Do NOT put real secrets in this file — it is committed to git.
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true     # Render generates a secure random string automatically
+
+      - key: CORS_ORIGINS
+        # Replace with your actual Vercel URL after your first Vercel deploy.
+        # Multiple origins: comma-separated, no spaces.
+        value: https://your-app.vercel.app
+
+      - key: SESSION_DIR
+        # ⚠️  WARNING (see SQLite note below):
+        # On the free Starter plan, /tmp is ephemeral — data is wiped on restart.
+        # Upgrade to the Standard plan and attach a Persistent Disk for persistence.
+        value: /tmp/mueen_sessions
+
+      - key: DB_PATH
+        # Same warning: /tmp is ephemeral on the free plan.
+        value: /tmp/mueen.db
+
+      - key: HF_HOME
+        # HuggingFace model cache — stored inside the ephemeral container.
+        # The model (~90 MB) is re-downloaded on every cold start unless you
+        # use a persistent disk for this path too.
+        value: /tmp/hf_cache
+
+      - key: TRANSFORMERS_CACHE
+        value: /tmp/hf_cache
+
+      - key: HF_TOKEN
+        # Optional — only needed for the AI summary feature (summarizer.py).
+        # Set this in the Render dashboard, not here.
+        sync: false             # tells Render: "I'll set this manually"
+
+      - key: PYTHON_VERSION
+        value: "3.11.0"

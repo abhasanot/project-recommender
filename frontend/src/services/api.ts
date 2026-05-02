@@ -2,23 +2,34 @@
 import axios from 'axios';
 
 /**
- * FIX (Bug): The original file used an absolute URL
- *   baseURL: 'http://localhost:5000/api'
+ * API client configuration.
  *
- * This has two problems:
- *  1. It bypasses the Vite proxy defined in vite.config.ts, so the proxy's
- *     changeOrigin magic is never applied.
- *  2. When withCredentials is true, CORS requires an explicit
- *     Access-Control-Allow-Origin header that matches the Origin exactly.
- *     Hardcoding 'http://localhost:5000' means the app breaks the moment the
- *     backend port changes, and is fragile in any deployed environment.
+ * How the base URL is resolved (in priority order):
  *
- * Using a relative path '/api' lets Vite proxy the requests at dev time and
- * lets the production reverse-proxy handle them transparently in production.
- * Flask-CORS on the backend is still needed for any direct calls.
+ *  1. PRODUCTION (Vercel → Render):
+ *     Set VITE_API_URL in the Vercel dashboard:
+ *       VITE_API_URL = https://your-app.onrender.com
+ *     The axios baseURL becomes: https://your-app.onrender.com/api
+ *
+ *  2. DOCKER (nginx reverse-proxy):
+ *     VITE_API_URL is NOT set at build time in Docker → falls back to '/api'
+ *     nginx proxies  GET /api/*  to  backend:5000/api/*
+ *
+ *  3. LOCAL DEV (Vite dev server):
+ *     VITE_API_URL is NOT set → falls back to '/api'
+ *     vite.config.ts proxy forwards  /api/*  to  http://localhost:5000
+ *
+ * NOTE: import.meta.env.VITE_* variables are replaced at BUILD TIME by Vite,
+ * not at runtime. You must set them in Vercel's "Environment Variables" section
+ * before deploying, not in the browser.
  */
+
+const BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL:         BASE_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
