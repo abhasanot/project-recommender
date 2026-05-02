@@ -313,7 +313,11 @@ def save_profile():
         if key not in data:
             return jsonify({"error": f"Missing required section: {key}"}), 400
 
-    for course in data.get("elective_courses", []):
+    elective_courses = data.get("elective_courses", [])
+    if len(elective_courses) > 5:
+        return jsonify({"error": "You cannot add more than 5 elective courses."}), 400
+
+    for course in elective_courses:
         if "course_code" not in course or "grade" not in course:
             return jsonify({"error": "Each course must have course_code and grade"}), 400
         if not course.get("grade", "").strip():
@@ -321,7 +325,7 @@ def save_profile():
 
     profile = StudentProfile(
         user_id=session["user_id"],
-        elective_courses=data.get("elective_courses", []),
+        elective_courses=elective_courses,
         interests=data.get("interests", []),
         applications=data.get("applications", []),
         rdia=data.get("rdia", ""),
@@ -355,7 +359,7 @@ def get_profile_completion():
     courses  = profile.get("elective_courses", [])
     grade_ok = all(c.get("grade", "") for c in courses)
     steps = {
-        "courses":      len(courses) >= 1 and grade_ok,
+        "courses":      len(courses) >= 1  and grade_ok,
         "interests":    len(profile.get("interests", [])) >= 1,
         "applications": len(profile.get("applications", [])) >= 1,
         "rdia":         bool(profile.get("rdia", "").strip()),
