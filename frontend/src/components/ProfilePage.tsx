@@ -28,6 +28,7 @@ interface SelectedCourse {
   grade:       string;
 }
 
+const COURSE_MAX = 5;
 const GRADES = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D'];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ export default function ProfilePage() {
   // ── Validation functions ─────────────────────────────────────────────────
   const validateCourses = (): string => {
     if (courses.length === 0) return "Please add at least one course";
+    if (courses.length > COURSE_MAX) return `You can only add up to ${COURSE_MAX} courses.`;
     const missing = courses.find(c => !c.grade.trim());
     if (missing) return `Please select a grade for "${missing.course_title}"`;
     return "";
@@ -146,7 +148,7 @@ export default function ProfilePage() {
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? 'Failed to load profile data';
       setLoadError(msg);
-      toast.error(msg); // ✅ Loading error shows as Toast
+      toast.error(msg); //  Loading error shows as Toast
     } finally {
       setPageLoading(false);
     }
@@ -158,6 +160,10 @@ export default function ProfilePage() {
 
   const addCourse = (code: string) => {
     if (!code) return;
+    if (courses.length >= COURSE_MAX) {
+      setSaveError(`You can only add up to ${COURSE_MAX} courses.`);
+      return;
+    }
     if (courses.find(c => c.course_code === code)) {
       const errorMsg = 'This course is already added';
       setSaveError(errorMsg);
@@ -252,11 +258,11 @@ export default function ProfilePage() {
         applications: apps,
         rdia,
       });
-      toast.success('Profile saved successfully!'); // ✅ Only success message as Toast
+      toast.success('Profile saved successfully!'); //  Only success message as Toast
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? 'Failed to save profile';
       setSaveError(msg);
-      toast.error(msg); // ✅ Save error shows as Toast
+      toast.error(msg); // Save error shows as Toast
     } finally {
       setSaving(false);
     }
