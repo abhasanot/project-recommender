@@ -212,7 +212,7 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
             </h1>
 
             <p className="text-sm sm:text-base md:text-lg text-gray-500 max-w-xl mx-auto mt-3 px-4">
-              Project Recommendation System for Computer Science Students at Imam Muhammad ibn Saud Islamic University
+              Explore previous projects, get personalized recommendations aligned with your interests, and analyze trends across different domains for deeper inspiration.
             </p>
           </div>
 
