@@ -140,7 +140,7 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
             </div>
             <CardTitle>View Project Details</CardTitle>
             <CardDescription>
-              Explore detailed information about past projects that match your interests
+              Explore detailed information about past projects that match your interests and skills
             </CardDescription>
           </CardHeader>
           <CardContent>
