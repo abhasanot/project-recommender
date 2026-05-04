@@ -22,8 +22,8 @@ import { useAuth } from "../contexts/AuthContext";
 // Name regex: letters (Latin + Arabic), spaces, apostrophe, hyphen
 const NAME_REGEX = /^[a-zA-Z\u0600-\u06FF\s'\-]+$/;
 
-// Email regex: standard email format
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+// Email regex: basic check for non-empty and @ symbol
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password regex: minimum 8 chars, uppercase, lowercase, number, special char
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -56,7 +56,7 @@ export default function LoginPage() {
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
-  // Track if user has touched each field (to show errors only after interaction)
+  // Track if user has touched each field to show errors only after interaction
   const [regTouched, setRegTouched] = useState({
     firstName: false,
     lastName: false,
@@ -69,10 +69,9 @@ export default function LoginPage() {
   // VALIDATION FUNCTIONS
   // ============================================
 
-  // Login validation
+  // Login validation - only check if fields are not empty
   const validateLoginEmail = (value: string): string => {
     if (!value.trim()) return "Email is required";
-    if (!EMAIL_REGEX.test(value)) return "Please enter a valid email address";
     return "";
   };
 
@@ -126,7 +125,7 @@ export default function LoginPage() {
   const handleLoginEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setLoginEmail(value);
-    // Clear server error when user starts typing
+    // Clear error when user starts typing
     if (loginEmailError) {
       setLoginEmailError("");
     }
@@ -159,14 +158,14 @@ export default function LoginPage() {
     // Mark all login fields as touched
     setLoginTouched({ email: true, password: true });
     
-    // Validate all login fields
+    // Validate all login fields (only check if empty)
     const emailErr = validateLoginEmail(loginEmail);
     const passwordErr = validateLoginPassword(loginPassword);
     
     setLoginEmailError(emailErr);
     setLoginPasswordError(passwordErr);
     
-    // Stop if validation fails - NO TOAST, only inline errors
+    // Stop if empty fields
     if (emailErr || passwordErr) {
       return;
     }
@@ -174,16 +173,20 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(loginEmail, loginPassword);
-      toast.success("Login successful!"); // ✅ Only success messages as Toast
+      toast.success("Login successful!");
     } catch (err: any) {
       const serverError = err.response?.data?.error || "Login failed";
-      // Show server error under the appropriate field - NO TOAST
-      if (serverError.toLowerCase().includes("email") || serverError.toLowerCase().includes("not found")) {
-        setLoginEmailError(serverError);
-      } else if (serverError.toLowerCase().includes("password")) {
+      const statusCode = err.response?.status;
+      
+      // Show all server errors under email field
+      // This way both "email not registered" and "invalid password" appear under email
+      setLoginEmailError(serverError);
+      setLoginPasswordError("");
+      
+      // Optional: If you want to try to detect password errors specifically
+      if (serverError.toLowerCase().includes("password")) {
+        setLoginEmailError("");
         setLoginPasswordError(serverError);
-      } else {
-        setLoginEmailError(serverError);
       }
     } finally {
       setLoading(false);
@@ -291,7 +294,7 @@ export default function LoginPage() {
     setPasswordError(passwordErr);
     setConfirmPasswordError(confirmErr);
 
-    // Stop if validation fails - NO TOAST, only inline errors
+    // Stop if validation fails
     if (firstNameErr || lastNameErr || emailErr || passwordErr || confirmErr) {
       return;
     }
@@ -305,10 +308,10 @@ export default function LoginPage() {
         password: regPassword,
         user_type: regUserType,
       });
-      toast.success("Registration successful!"); // ✅ Only success messages as Toast
+      toast.success("Registration successful!");
     } catch (err: any) {
       const serverError = err.response?.data?.error || "Registration failed";
-      // Show server error under the appropriate field - NO TOAST
+      // Show server error under the appropriate field
       if (serverError.toLowerCase().includes("email")) {
         setEmailError(serverError);
       } else if (serverError.toLowerCase().includes("password")) {
@@ -363,10 +366,7 @@ export default function LoginPage() {
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
 
-            {/* ============================================
-                LOGIN TAB - Error messages appear as red text under fields only
-                Success messages appear as Toast
-                ============================================ */}
+            {/* Login Tab */}
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 {/* Email Field */}
@@ -412,15 +412,16 @@ export default function LoginPage() {
                   className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                   disabled={loading}
                 >
-                  {loading ? "Logging in…" : "Login"}
+                  {loading ? "Logging in..." : "Login"}
                 </Button>
+
+                <p className="text-xs text-center text-gray-500 mt-4">
+                  Don't have an account? Switch to the Register tab to create one.
+                </p>
               </form>
             </TabsContent>
 
-            {/* ============================================
-                REGISTER TAB - Error messages appear as red text under fields only
-                Success messages appear as Toast
-                ============================================ */}
+            {/* Register Tab */}
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-4">
                 {/* User Type Selection */}
@@ -535,7 +536,7 @@ export default function LoginPage() {
                   className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                   disabled={loading}
                 >
-                  {loading ? "Creating Account…" : "Register"}
+                  {loading ? "Creating Account..." : "Register"}
                 </Button>
               </form>
             </TabsContent>
@@ -544,7 +545,7 @@ export default function LoginPage() {
 
         <div className="px-6 py-4 text-center border-t bg-gray-50">
           <p className="text-sm text-gray-600">
-            Mu'een – Academic Recommendation System
+            Mu'een - Academic Recommendation System
           </p>
         </div>
       </Card>

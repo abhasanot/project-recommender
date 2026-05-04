@@ -37,9 +37,9 @@ from summarizer import generate_summary  # one-paragraph project summary
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # APP SETUP
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -74,9 +74,9 @@ db = Database()
 recommender_system = RecommenderSystem()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 def login_required(f):
     @wraps(f)
@@ -192,9 +192,9 @@ def _generate_recommendations(group_id: str):
         return None
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # HEALTH CHECK  (used by Docker healthcheck and nginx upstream checks)
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/health")
 def health():
@@ -206,22 +206,22 @@ def health():
     return jsonify({"status": "ok", "service": "mueen-backend"}), 200
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # AUTH
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
     import re
 
-    # ── Regex patterns ────────────────────────────────────────────────────────
+    # Regex patterns
     EMAIL_RE    = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
     PASSWORD_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
     NAME_RE     = re.compile(r'^[a-zA-Z\u0600-\u06FF\s\'\-]+$')   # letters (Latin + Arabic), spaces, apostrophe, hyphen
 
     data = request.json or {}
 
-    # ── Required fields (first_name / last_name replace plain name) ───────────
+    # Required fields (first_name / last_name replace plain name)
     for field in ["email", "password", "first_name", "last_name", "user_type"]:
         if not data.get(field, "").strip():
             return jsonify({"error": f"Missing required field: {field}"}), 400
@@ -230,17 +230,17 @@ def signup():
     last_name  = data["last_name"].strip()
     full_name  = f"{first_name} {last_name}"
 
-    # ── Name validation (no digits or special symbols) ────────────────────────
+    # Name validation (no digits or special symbols)
     if not NAME_RE.match(first_name):
         return jsonify({"error": "First name must contain letters only (no digits or special characters)"}), 400
     if not NAME_RE.match(last_name):
         return jsonify({"error": "Last name must contain letters only (no digits or special characters)"}), 400
 
-    # ── Email validation ──────────────────────────────────────────────────────
+    # Email validation
     if not EMAIL_RE.match(data["email"]):
         return jsonify({"error": "Invalid email format"}), 400
 
-    # ── Password validation ───────────────────────────────────────────────────
+    # Password validation
     if not PASSWORD_RE.match(data["password"]):
         return jsonify({
             "error": (
@@ -273,9 +273,16 @@ def login():
         return jsonify({"error": "Email and password required"}), 400
 
     user = db.get_user_by_email(data["email"])
-    if not user or not bcrypt.check_password_hash(user["password_hash"], data["password"]):
-        return jsonify({"error": "Invalid email or password"}), 401
+    
+    # Case 1: Email not found in database
+    if not user:
+        return jsonify({"error": "This email is not registered"}), 404
+    
+    # Case 2: Password is incorrect
+    if not bcrypt.check_password_hash(user["password_hash"], data["password"]):
+        return jsonify({"error": "Incorrect password or email. Please try again."}), 401
 
+    # Case 3: Successful login
     session.update({"user_id": user["id"], "user_email": user["email"],
                     "user_name": user["name"], "user_type": user["user_type"]})
     return jsonify({"message": "Login successful",
@@ -301,9 +308,9 @@ def get_current_user():
     }), 200
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # PROFILE
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/profile", methods=["POST"])
 @login_required
@@ -368,9 +375,9 @@ def get_profile_completion():
     return jsonify({"completion": pct, "details": steps}), 200
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # GROUP
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/group/create", methods=["POST"])
 @login_required
@@ -536,9 +543,9 @@ def leave_group():
     return jsonify({"message": "Left group successfully"}), 200
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # GROUP WEIGHTS
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/group/weights", methods=["GET"])
 @login_required
@@ -595,9 +602,9 @@ def update_group_weights():
     }), 200
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # RECOMMENDATIONS
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/recommendations", methods=["GET"])
 @login_required
@@ -641,9 +648,9 @@ def get_recommendations():
     }), 200
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # DOMAIN DATA
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/domains", methods=["GET"])
 def get_domains():
@@ -698,9 +705,9 @@ def get_acm_taxonomy():
         return jsonify({"error": "Failed to load ACM taxonomy"}), 500
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # PROJECTS / TRENDS
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/projects", methods=["GET"])
 def get_projects():
@@ -720,32 +727,9 @@ def get_projects():
         return jsonify({"message": "Projects data not available yet.", "projects": []}), 200
 
 
-# @app.route("/api/supervisors", methods=["GET"])
-# def get_supervisors():
-#     path = os.path.join(BASE_DIR, "embeddings", "project_index.json")
-#     try:
-#         with open(path, encoding="utf-8") as f:
-#             projects = json.load(f)
-#         sups = {}
-#         for pid, p in projects.items():
-#             n = p.get("supervisor_name", "")
-#             if not n: continue
-#             if n not in sups:
-#                 sups[n] = {"name": n, "projects": 0, "domains": [], "applications": []}
-#             sups[n]["projects"] += 1
-#             sups[n]["domains"].extend(p.get("interest", []))
-#             sups[n]["applications"].extend(p.get("application", []))
-#         for s in sups.values():
-#             s["domains"] = list(set(s["domains"]))
-#             s["applications"] = list(set(s["applications"]))
-#         return jsonify(list(sups.values())), 200
-#     except FileNotFoundError:
-#         return jsonify([]), 200
-
-
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # ADD PROJECT  (faculty only)
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 @app.route("/api/projects/check-id/<project_id>", methods=["GET"])
 @login_required
@@ -769,7 +753,7 @@ def add_project():
 
     data = request.json or {}
 
-    # ── Required field validation ──────────────────────────────────────────
+    # Required field validation
     required = ["title", "supervisor_name", "supervisor_id",
                 "academic_year", "semester", "abstract"]
     for field in required:
@@ -786,7 +770,7 @@ def add_project():
     if not classification.get("acm"):
         return jsonify({"error": "At least one ACM classification is required"}), 400
 
-    # ── Project ID — provided by faculty ─────────────────────────────────
+    # Project ID — provided by faculty
     proj_id = data.get("project_id", "").strip()
     if not proj_id:
         return jsonify({"error": "Project ID is required"}), 400
@@ -800,7 +784,7 @@ def add_project():
     # Parse year and semester from submitted data (e.g., "2023-2024" and "Fall")
     year = data.get("academic_year", "").strip()
     sem = data.get("semester", ""   ).strip()
-    # ── Build project dict (matches existing project JSON schema) ─────────
+    # Build project dict (matches existing project JSON schema)
     project = {
         "id":              proj_id,
         "title":           data["title"].strip(),
@@ -827,13 +811,13 @@ def add_project():
         },
     }
 
-    # ── Save JSON file ────────────────────────────────────────────────────
+    # Save JSON file
     os.makedirs(projects_dir, exist_ok=True)
     proj_file = os.path.join(projects_dir, f"{proj_id}.json")
     with open(proj_file, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 
-    # ── Update project_index.json ─────────────────────────────────────────
+    # Update project_index.json
     try:
         with open(index_path, encoding="utf-8") as f:
             index = json.load(f)
@@ -859,10 +843,10 @@ def add_project():
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index, f, ensure_ascii=False, indent=2)
 
-    # ── Record in faculty's added_projects ────────────────────────────────
+    # Record in faculty's added_projects
     db.append_faculty_added_project(session["user_id"], proj_id)
 
-    # ── Generate embedding & register in live engine ──────────────────────
+    # Generate embedding & register in live engine
     try:
         engine = recommender_system.engine   # EmbeddingEngine instance
         embedded = engine.embed_and_register_project(project)
@@ -887,10 +871,6 @@ def get_my_added_projects():
         return jsonify({"error": "Faculty only"}), 403
     ids = db.get_faculty_added_projects(session["user_id"])
     return jsonify({"added_project_ids": ids}), 200
-
-
-
-
 
 
 if __name__ == "__main__":
