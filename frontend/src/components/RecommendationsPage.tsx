@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// -- Types -------------------------------------------------------------------
 
 interface RecommendationsPageProps {
   groupFinalized:   boolean;
@@ -55,7 +55,7 @@ interface BlockedState {
   incomplete_members?: string[];
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// -- Component -----------------------------------------------------------------
 
 export default function RecommendationsPage({ groupFinalized, refreshTrigger }: RecommendationsPageProps) {
   const [data,    setData]    = useState<RecommendationData | null>(null);
@@ -91,7 +91,7 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
     }
   };
 
-  // ── Blocked screens ───────────────────────────────────────────────────────
+  // -- Blocked screens -------------------------------------------------------
 
   if (!groupFinalized) {
     return <BlockScreen
@@ -151,7 +151,7 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
     />;
   }
 
-  // ── Results ───────────────────────────────────────────────────────────────
+  // -- Results (Order: Profile Summary -> Interests -> Applications -> RDIA -> Projects) -------------
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -162,7 +162,7 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
         </p>
       </div>
 
-      {/* Group Profile Summary */}
+      {/* SECTION 1: Group Profile Summary (stays in same place) */}
       <Card className="mb-8 border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -196,7 +196,34 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
         </CardContent>
       </Card>
 
-      {/* Recommended Projects */}
+      {/* SECTION 2: Domain Interests (FIRST) */}
+      <RecommendSection title="Recommended Domain Interests" icon={<Sparkles className="w-5 h-5 text-purple-600" />}>
+        {data.interests.map(item => (
+          <DomainCard key={item.name} name={item.name} desc={item.description}
+            score={item.combined_score} selected={item.already_selected}
+            colorSel="indigo" selectedLabel="Already selected" />
+        ))}
+      </RecommendSection>
+
+      {/* SECTION 3: Application Domains (SECOND) */}
+      <RecommendSection title="Recommended Application Domains" icon={<Target className="w-5 h-5 text-blue-600" />}>
+        {data.applications.map(item => (
+          <DomainCard key={item.name} name={item.name} desc={item.description}
+            score={item.combined_score} selected={item.already_selected}
+            colorSel="blue" selectedLabel="Already selected" />
+        ))}
+      </RecommendSection>
+
+      {/* SECTION 4: RDIA Priority Alignment (THIRD) */}
+      <RecommendSection title="RDIA Priority Alignment" icon={<Lightbulb className="w-5 h-5 text-amber-600" />} cols={2}>
+        {data.rdia.map((item, idx) => (
+          <DomainCard key={item.label} name={`#${idx + 1} ${item.label}`} desc={item.description}
+            score={item.combined_score} selected={item.already_selected}
+            colorSel="amber" selectedLabel="Your selection" />
+        ))}
+      </RecommendSection>
+
+      {/* SECTION 5: Recommended Projects (FOURTH/LAST) */}
       <section className="mb-10">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-indigo-600" /> Recommended Past Projects
@@ -244,38 +271,11 @@ export default function RecommendationsPage({ groupFinalized, refreshTrigger }: 
           ))}
         </div>
       </section>
-
-      {/* Interests */}
-      <RecommendSection title="Recommended Domain Interests" icon={<Sparkles className="w-5 h-5 text-purple-600" />}>
-        {data.interests.map(item => (
-          <DomainCard key={item.name} name={item.name} desc={item.description}
-            score={item.combined_score} selected={item.already_selected}
-            colorSel="indigo" selectedLabel="Already selected" />
-        ))}
-      </RecommendSection>
-
-      {/* Applications */}
-      <RecommendSection title="Recommended Application Domains" icon={<Target className="w-5 h-5 text-blue-600" />}>
-        {data.applications.map(item => (
-          <DomainCard key={item.name} name={item.name} desc={item.description}
-            score={item.combined_score} selected={item.already_selected}
-            colorSel="blue" selectedLabel="Already selected" />
-        ))}
-      </RecommendSection>
-
-      {/* RDIA */}
-      <RecommendSection title="RDIA Priority Alignment" icon={<Lightbulb className="w-5 h-5 text-amber-600" />} cols={2}>
-        {data.rdia.map((item, idx) => (
-          <DomainCard key={item.label} name={`#${idx + 1} ${item.label}`} desc={item.description}
-            score={item.combined_score} selected={item.already_selected}
-            colorSel="amber" selectedLabel="Your selection" />
-        ))}
-      </RecommendSection>
     </div>
   );
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// -- Sub-components -------------------------------------------------------------
 
 function BlockScreen({ icon, title, color, message, detail, retry }: {
   icon: React.ReactNode; title: string; color: string;

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import ProfilePage          from './ProfilePage';
 import GroupPage            from './GroupPage';
-import SimilarProjectsPage  from './SimilarProjectsPage';
+import ProjectDetailsPage  from './ProjectDetailsPage';
 import TrendsPage           from './TrendsPage';
 import DashboardHome        from './DashboardHome';
 import RecommendationsPage  from './RecommendationsPage';
@@ -64,8 +64,8 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
     { id: 'profile',         label: 'My Profile',       icon: User       },
     { id: 'group',           label: 'My Group',         icon: Users      },
     { id: 'recommendations', label: 'Recommendations',  icon: Lightbulb  },
-    { id: 'projects',        label: 'Similar Projects', icon: FileText   },
-    { id: 'trends',          label: 'Trend Analysis',           icon: TrendingUp },
+    { id: 'projects',        label: 'Project Details',  icon: FileText   },
+    { id: 'trends',          label: 'Trend Analysis',   icon: TrendingUp },
     { id: 'settings',        label: 'Group Settings',   icon: Settings   },
   ];
 
@@ -96,7 +96,7 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
           />
         );
       case 'projects':
-        return <SimilarProjectsPage />;
+        return <ProjectDetailsPage  />;
       case 'trends':
         return <TrendsPage />;
       case 'settings':

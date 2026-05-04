@@ -138,14 +138,14 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
             <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center mb-3">
               <FileText className="w-6 h-6 text-blue-700" />
             </div>
-            <CardTitle>Browse Similar Projects</CardTitle>
+            <CardTitle>View Project Details</CardTitle>
             <CardDescription>
-              Explore past projects that match your interests and background
+              Explore detailed information about past projects that match your interests
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="ghost" className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-              View Projects →
+              View Details →
             </Button>
           </CardContent>
         </Card>
@@ -201,7 +201,7 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
                 ) : (
                   <Clock className="w-4 h-4 text-amber-600" />
                 )}
-                Browse project ideas
+                Browse project details
               </li>
             </ul>
           </CardContent>
@@ -232,7 +232,7 @@ export default function DashboardHome({ onNavigate, studentName, groupFinalized 
                     </Badge>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => onNavigate('projects')}>
-                    View
+                    View Details
                   </Button>
                 </div>
               ))}
