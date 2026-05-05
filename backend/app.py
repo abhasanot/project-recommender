@@ -280,7 +280,7 @@ def login():
     
     # Case 2: Password is incorrect
     if not bcrypt.check_password_hash(user["password_hash"], data["password"]):
-        return jsonify({"error": "Incorrect password or email. Please try again."}), 401
+        return jsonify({"error": "Incorrect password . Please try again."}), 401
 
     # Case 3: Successful login
     session.update({"user_id": user["id"], "user_email": user["email"],
