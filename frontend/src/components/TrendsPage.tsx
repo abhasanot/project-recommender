@@ -24,7 +24,7 @@ import {
 import {
   TrendingUp, TrendingDown, Minus, Filter, RefreshCw,
   BarChart2, Activity, PieChart as PieIcon,
-  ChevronDown, X,
+  ChevronDown, X, Info,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -212,6 +212,82 @@ function TrendIcon({ trend, size = 14 }: { trend: string; size?: number }) {
   return <Minus style={{ width: size, height: size }} className="text-gray-400" />;
 }
 
+// ── Growth rate explanation tooltip ───────────────────────────────────────────
+// Displays a plain-language breakdown of how the growth rate was derived.
+// Positioned above the badge so it never clips off the bottom of the screen.
+
+function GrowthRateTooltip({ series, periods }: { series: any; periods: PeriodOpt[] }) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const explanation = useMemo(() => {
+    const data: number[] = series.data ?? [];
+    if (!periods || periods.length === 0 || data.length === 0) return null;
+
+    let firstIdx = -1;
+    let lastIdx = -1;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] != null && firstIdx === -1) firstIdx = i;
+      if (data[i] != null) lastIdx = i;
+    }
+    if (firstIdx === -1 || firstIdx === lastIdx) return null;
+
+    return {
+      firstPeriod: periods[firstIdx]?.label ?? `Period ${firstIdx + 1}`,
+      lastPeriod: periods[lastIdx]?.label ?? `Period ${lastIdx + 1}`,
+      firstCount: data[firstIdx],
+      lastCount: data[lastIdx],
+    };
+  }, [series, periods]);
+
+  if (!explanation) return null;
+
+  const { firstPeriod, lastPeriod, firstCount, lastCount } = explanation;
+
+  return (
+    <div
+      className="relative inline-flex items-center ml-1"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+    >
+      <button
+        type="button"
+        className="flex items-center justify-center w-4 h-4 rounded-full text-gray-400 hover:text-violet-400 hover:bg-violet-900/20 transition-all focus:outline-none"
+        aria-label="Growth calculation info"
+      >
+        <Info className="w-3.5 h-3.5" />
+      </button>
+
+      {visible && (
+        <div
+          className="absolute z-[100] bottom-full mb-3 left-1/2 -translate-x-1/2 w-72 bg-gray-900 text-white rounded-xl shadow-2xl p-4 text-xs animate-in fade-in zoom-in duration-200"
+          role="tooltip"
+        >
+          {/* Arrow */}
+          <div 
+            className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0"
+            style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid #111827' }}
+          />
+
+          <p className="font-bold text-violet-300 mb-2 border-b border-gray-700 pb-1 text-[11px] uppercase tracking-wider">
+      ❋ How this was calculated
+          </p>
+          <div className="space-y-2 text-gray-200 leading-relaxed">
+            <p>
+              In <span className="font-semibold text-white">{firstPeriod}</span>, the project count was <span className="text-violet-400 font-bold text-sm">{firstCount}</span>.
+            </p>
+            <p>
+              In <span className="font-semibold text-white">{lastPeriod}</span>, it changed to <span className="text-violet-400 font-bold text-sm">{lastCount}</span>.
+            </p>
+            <p className="pt-1 text-[10px] text-gray-500 italic border-t border-gray-800 mt-1">
+              * Rate is based on the change between the first and last available data points.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function TrendsPage() {
@@ -368,7 +444,7 @@ export default function TrendsPage() {
           {hasFilters && (
             <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
               {Object.entries(activeFilters).flatMap(([dim, vals]) =>
-                vals.map(v => (
+                (vals as string[]).map((v: string) => (
                   <span key={`${dim}-${v}`}
                     className="flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-800 text-xs rounded-full">
                     {dim === 'semesters' ? semesterLabel(v) : v}
@@ -494,6 +570,7 @@ export default function TrendsPage() {
                           <span className="text-xs font-medium" style={{ color: TREND_COLORS[s.trend as keyof typeof TREND_COLORS] }}>
                             {s.growth_rate > 0 ? '+' : ''}{s.growth_rate}%
                           </span>
+                          <GrowthRateTooltip series={s} periods={timelineData.periods ?? []} />
                         </div>
                       ))}
                     </div>

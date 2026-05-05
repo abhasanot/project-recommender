@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import {
   User, Users, Lightbulb, LogOut, Home,
-  FileText, TrendingUp, Settings,
+  FileText, TrendingUp, Settings, FolderOpen,
 } from 'lucide-react';
 import ProfilePage          from './ProfilePage';
 import GroupPage            from './GroupPage';
@@ -12,11 +12,13 @@ import TrendsPage           from './TrendsPage';
 import DashboardHome        from './DashboardHome';
 import RecommendationsPage  from './RecommendationsPage';
 import GroupSettingsPage    from './GroupSettingsPage';
+import UserGuide            from './UserGuide';
+import FacultyBrowseProjects from './FacultyBrowseProjects';
 import api from '../services/api';
 
 type Page =
   | 'home' | 'profile' | 'group' | 'recommendations'
-  | 'projects' | 'trends' | 'settings';
+  | 'projects' | 'browse' | 'trends' | 'settings';
 
 interface DashboardProps {
   studentName: string;
@@ -95,6 +97,8 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
             refreshTrigger={refreshTrigger}
           />
         );
+      case 'browse':
+        return <FacultyBrowseProjects />;
       case 'projects':
         return <ProjectDetailsPage  />;
       case 'trends':
@@ -176,6 +180,9 @@ export default function Dashboard({ studentName, onLogout }: DashboardProps) {
           <div className="mb-3 px-3 py-2 bg-white rounded-lg border border-gray-200">
             <p className="text-xs text-gray-400">Logged in as</p>
             <p className="text-sm text-gray-800 truncate font-medium">{studentName}</p>
+          </div>
+          <div className="mb-2">
+            <UserGuide role="student" />
           </div>
           <Button
             variant="outline"

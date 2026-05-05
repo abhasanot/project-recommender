@@ -28,6 +28,7 @@ import {
 import TrendsPage            from "./TrendsPage";
 import FacultyBrowseProjects from "./FacultyBrowseProjects";
 import AddProjectPage        from "./AddProjectPage.tsx";
+import UserGuide             from "./UserGuide";
 
 interface FacultyDashboardProps {
   facultyName: string;
@@ -147,6 +148,9 @@ export default function FacultyDashboard({ facultyName, onLogout }: FacultyDashb
           <div className="mb-3 px-3 py-2 bg-white rounded-lg border border-gray-200">
             <p className="text-xs text-gray-400">Logged in as</p>
             <p className="text-sm text-gray-800 truncate font-medium">{facultyName}</p>
+          </div>
+          <div className="mb-2">
+            <UserGuide role="faculty" />
           </div>
           <Button
             variant="outline"
