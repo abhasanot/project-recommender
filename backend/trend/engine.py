@@ -36,7 +36,6 @@ from typing import Any, Dict, List, Optional, Tuple
 SEMESTER_LABELS: Dict[str, str] = {
     "10": "First Semester",
     "20": "Second Semester",
-    "30": "Summer Semester",
 }
 
 # The project_index.json lives at  <project_root>/embeddings/project_index.json
@@ -63,7 +62,7 @@ def _parse_id(project_id: str) -> Dict[str, Any]:
 
     Format: {supervisor_code}-{year_short}-{semester_code}
       year_short : 42 → academic year 1442
-      semester   : 10 = First, 20 = Second, 30 = Summer
+      semester   : 10 = First, 20 = Second
     """
     m = re.match(r'^([A-Za-z]\d+)-(\d+)-(\d+)$', project_id.strip())
     if not m:
