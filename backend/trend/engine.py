@@ -60,7 +60,7 @@ def _parse_id(project_id: str) -> Dict[str, Any]:
     """
     Parse a project ID like 'F01-42-20' into structured metadata.
 
-    Format: {supervisor_code}-{year_short}-{semester_code}
+    Format: {group_code}-{year_short}-{semester_code}
       year_short : 42 → academic year 1442
       semester   : 10 = First, 20 = Second
     """
@@ -71,7 +71,7 @@ def _parse_id(project_id: str) -> Dict[str, Any]:
     semester_raw = m.group(3)          # e.g. "20"
     full_year    = f"1{year_short}" if len(year_short) == 2 else year_short
     return {
-        "supervisor_code": m.group(1),
+        "group_code": m.group(1),
         "year_short":      year_short,          # "42"
         "year_full":       full_year,            # "142" → corrected below
         "academic_year":   int(f"1{year_short}") if len(year_short) == 2 else int(year_short),
