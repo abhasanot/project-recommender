@@ -8,7 +8,20 @@ backend/app.py with the prefix /api/trends.
 Usage in app.py (one-line addition):
     from trend.routes import trend_bp
     app.register_blueprint(trend_bp)
+
+Available dimensions:
+    - interest
+    - application
+    - rdia
+
+Available filters:
+    - years
+    - semesters
+    - interests
+    - applications
+    - rdia
 """
+
 from .routes import trend_bp
 
 __all__ = ["trend_bp"]

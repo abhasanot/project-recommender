@@ -57,7 +57,6 @@ interface FilterOptions {
   interests:    string[];
   applications: string[];
   rdia:         string[];
-  supervisors:  string[];
   total_projects: number;
 }
 
