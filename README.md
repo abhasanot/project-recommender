@@ -1,6 +1,6 @@
 # Mu'een — Project Recommendation System
 
-Mu'een is a graduation project recommendation system built for CCIS at Princess Nourah bint Abdulrahman University. It matches student groups with suitable past graduation projects based on their academic interests, application domains, and course backgrounds using semantic embeddings.
+Mu'een is a graduation project recommendation system built for CCIS at Imam Muhammed Ibn Saud Islamic University. It matches student groups with suitable past graduation projects based on their academic interests, application domains, and course backgrounds using semantic embeddings.
 
 ## Project Structure
 
