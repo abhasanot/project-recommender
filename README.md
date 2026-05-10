@@ -1,10 +1,37 @@
 # Mu'een — Project Recommendation System
-![Mu'een Logo](frontend/public/logo.png)
+<p align="center">
+  <img src="frontend/public/logo.png" width="200"/>
+</p>
 
-Mu'een is a graduation project recommendation system built for CCIS at Imam Muhammed Ibn Saud Islamic University. It matches student groups with suitable past graduation projects based on their academic interests, application domains, and course backgrounds using semantic embeddings.
+Mu'een is an intelligent graduation project recommendation system for CCIS at Imam Mohammad Ibn Saud Islamic University.
 
-The system matches groups to projects by combining multiple signals such as course performance, interest domains, application domains, and research direction (RDIA). It also provides AI-based project summaries and a trend analysis dashboard to help users understand patterns in past projects and explore emerging topics.
+It recommends suitable graduation projects for student groups based on:
+- Academic performance (courses & grades)
+- Research interests
+- Application domains
+- RDIA priorities
 
+The system uses semantic embeddings and AI-powered summarization to deliver explainable and personalized recommendations.
+
+
+## ※ Mu'een Features
+
+❊ Intelligent project recommendation using semantic similarity  
+❊ Group-based recommendation system  
+❊ Trend analysis of graduation projects  
+❊ AI-generated project summaries  
+❊ Advanced filtering and project browsing  
+❊ Adjustable recommendation weighting system  
+
+## ※ How Mu'een Works
+
+1. Students complete their academic profile
+2. System aggregates group preferences
+3. Semantic embeddings are used to match projects
+4. Recommendation engine ranks projects
+5. AI generates explanations and summaries
+
+   
 ## Project Structure
 
 ```
