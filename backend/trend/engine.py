@@ -177,33 +177,58 @@ def _count_scalar(projects: List[dict], field: str) -> Counter:
     return Counter(p.get(field, "Unknown") for p in projects)
 
 
-def _trend_direction(history: List[int]) -> str:
-    """
-    Classify a time-ordered sequence of counts.
-    Returns 'increasing', 'decreasing', or 'stable'.
-    """
-    if len(history) < 2:
-        return "stable"
-    deltas = [history[i] - history[i - 1] for i in range(1, len(history))]
-    pos = sum(1 for d in deltas if d > 0)
-    neg = sum(1 for d in deltas if d < 0)
-    if pos > neg:
-        return "increasing"
-    if neg > pos:
-        return "decreasing"
-    return "stable"
-
-
 def _growth_rate(history: List[int]) -> float:
     """
-    Percentage change from first to last non-zero value.
-    Returns 0.0 if history is empty or all zeros.
-    """
-    non_zero = [v for v in history if v > 0]
-    if len(non_zero) < 2:
-        return 0.0
-    return round((non_zero[-1] - non_zero[0]) / non_zero[0] * 100, 1)
+    Percentage change from first non-zero value to the last value.
+    Returns 0.0 if history is empty or no non-zero value found.
 
+    Logic:
+    1. Find first non-zero value and its index
+    2. If no non-zero value found -> return 0.0
+    3. If the non-zero value appears ONLY in the last position 
+       (first non-zero index == last index)
+       -> This means the category emerged for the first time in the final period
+       -> Return 100.0 (positive growth from zero)
+    4. Otherwise, calculate standard percentage change
+    
+    Examples:
+      [0, 0, 0, 0, 5] -> 100.0 (emerged at last period)
+      [0, 0, 5, 8, 12] -> (12-5)/5*100 = 140.0
+      [0, 0, 5, 8, 0] -> (0-5)/5*100 = -100.0
+      [0, 0, 0, 5, 0] -> (0-5)/5*100 = -100.0 (emerged then disappeared)
+      [5, 8, 12, 10, 0] -> (0-5)/5*100 = -100.0
+      [0, 0, 0, 0, 0] -> 0.0
+      [5, 0, 0, 0, 0] -> (0-5)/5*100 = -100.0 (disappeared)
+    """
+    if not history:
+        return 0.0
+    
+    # Find first non-zero value and its index
+    first_non_zero = None
+    first_idx = -1
+    for i, v in enumerate(history):
+        if v > 0:
+            first_non_zero = v
+            first_idx = i
+            break
+    
+    # If no non-zero value found, return 0
+    if first_non_zero is None:
+        return 0.0
+    
+    last_value = history[-1]
+    last_idx = len(history) - 1
+    
+    # Special case: first non-zero appears ONLY at the last position
+    # This means the category emerged for the first time in the final period
+    if first_idx == last_idx:
+        return 100.0
+    
+    # Normal case: calculate percentage change
+    change = last_value - first_non_zero
+    growth = round((change / first_non_zero) * 100, 1)
+    
+    return growth
 
 # -----------------------------------------------------------------------------
 # Public API
@@ -335,6 +360,11 @@ class TrendEngine:
             "periods":  [{"key":"1442-10","label":"1442 - First Semester"}, ...],
             "series":   [{"name":"AI/ML","data":[3,5,8],"trend":"increasing","growth_rate":166.7,"total":16}, ...]
           }
+
+        Note: trend direction is derived from growth_rate sign:
+          - growth_rate > 0  -> "increasing"
+          - growth_rate < 0  -> "decreasing"
+          - growth_rate == 0 -> "stable"
         """
         proj = _apply_filters(_get_projects(), filters)
 
@@ -366,11 +396,21 @@ class TrendEngine:
         series = []
         for cat in sorted(top_cats):
             history = [period_data[pk].get(cat, 0) for pk in period_keys]
+            gr = _growth_rate(history)
+
+            # Determine trend based ONLY on growth rate sign
+            if gr > 0:
+                trend = "increasing"
+            elif gr < 0:
+                trend = "decreasing"
+            else:
+                trend = "stable"
+
             series.append({
                 "name":        cat,
                 "data":        history,
-                "trend":       _trend_direction(history),
-                "growth_rate": _growth_rate(history),
+                "trend":       trend,
+                "growth_rate": gr,
                 "total":       sum(history),
             })
 

@@ -6,11 +6,11 @@
  * Faculty have access to all projects, students only see their own.
  *
  * Features:
- *  1. Filter panel      – year, semester, interest, application, RDIA
- *  2. Summary KPI bar   – total projects, top domains, growth indicators
- *  3. Timeline tab      – line chart (trend over time)
- *  4. Distribution tab  – pie/donut chart
- *  5. Frequency tab     – bar chart per dimension
+ *  1. Filter panel      - year, semester, interest, application, RDIA
+ *  2. Summary KPI bar   - total projects, top domains, growth indicators
+ *  3. Timeline tab      - line chart (trend over time)
+ *  4. Distribution tab  - pie/donut chart
+ *  5. Frequency tab     - bar chart per dimension
  */
 
 import {
@@ -22,12 +22,11 @@ import {
   LabelList,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, Minus, Filter, RefreshCw,
+  TrendingUp, Filter, RefreshCw,
   BarChart2, Activity, PieChart as PieIcon,
   ChevronDown, X, Info,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -35,7 +34,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import api from '../services/api';
 
-// ── Colour palette (matches logo's purple brand) ─────────────────────────────
+// Colour palette (matches logo's purple brand)
 const PALETTE = [
   '#7C3AED','#9333EA','#A855F7','#C084FC','#DDD6FE',
   '#6D28D9','#4C1D95','#5B21B6','#8B5CF6','#E879F9',
@@ -43,13 +42,7 @@ const PALETTE = [
   '#EC4899','#F43F5E','#EF4444','#F97316','#EAB308',
 ];
 
-const TREND_COLORS = {
-  increasing: '#10B981',
-  stable:     '#6B7280',
-  decreasing: '#EF4444',
-};
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 interface FilterOptions {
   years:        string[];
@@ -82,25 +75,22 @@ interface ActiveFilters {
   rdia:         string[];
 }
 
-// ── Dimension options (only 3 options for all tabs) ─────────────────────────
+// Dimension options (only 3 options for all tabs)
 const CHART_DIMENSIONS = [
   { value: 'interest',    label: 'Domain Interest' },
   { value: 'application', label: 'Application Domain' },
   { value: 'rdia',        label: 'RDIA Priority' },
 ];
 
-// ── Converts semester code to a human-readable label ────────────────────────
-// The system stores semesters as numeric codes: 10 = First, 20 = Second, 30 = Third.
-// This function is used for display only; the raw code is still sent to the API.
+// Converts semester code to a human-readable label
 function semesterLabel(code: string): string {
   if (code === '10') return 'First';
   if (code === '20') return 'Second';
   if (code === '30') return 'Third';
-  return code; // fallback: return code as-is if unrecognised
+  return code;
 }
 
-// ── Multi-select chip component with "All" option ───────────────────────────
-
+// Multi-select chip component with "All" option
 function MultiSelect({
   label, options, selected, onToggle, getLabel,
 }: {
@@ -108,12 +98,12 @@ function MultiSelect({
   options: string[];
   selected: string[];
   onToggle: (v: string) => void;
-  getLabel?: (v: string) => string; // optional display-label mapper (value stays raw)
+  getLabel?: (v: string) => string;
 }) {
   const [open, setOpen] = useState(false);
-  
+
   const allSelected = selected.length === options.length && options.length > 0;
-  
+
   const handleSelectAll = () => {
     if (allSelected) {
       options.forEach(opt => {
@@ -160,10 +150,9 @@ function MultiSelect({
               </div>
               <span className="font-medium">All {label}s</span>
             </button>
-            
+
             {options.map(opt => {
               const isSelected = selected.includes(opt);
-              // Use getLabel for display if provided; otherwise show the raw value
               const displayText = getLabel ? getLabel(opt) : opt;
               return (
                 <button
@@ -187,7 +176,7 @@ function MultiSelect({
   );
 }
 
-// ── Custom Tooltip for recharts ───────────────────────────────────────────────
+// Custom Tooltip for recharts
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -204,44 +193,46 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ── Trend icon helper ──────────────────────────────────────────────────────────
-function TrendIcon({ trend, size = 14 }: { trend: string; size?: number }) {
-  if (trend === 'increasing') return <TrendingUp  style={{ width: size, height: size }} className="text-emerald-500" />;
-  if (trend === 'decreasing') return <TrendingDown style={{ width: size, height: size }} className="text-red-400" />;
-  return <Minus style={{ width: size, height: size }} className="text-gray-400" />;
-}
-
-// ── Growth rate explanation tooltip ───────────────────────────────────────────
-// Displays a plain-language breakdown of how the growth rate was derived.
-// Positioned above the badge so it never clips off the bottom of the screen.
-
+// Growth rate explanation tooltip
+// Displays the exact first non-zero and last value used in growth_rate calculation
 function GrowthRateTooltip({ series, periods }: { series: any; periods: PeriodOpt[] }) {
   const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   const explanation = useMemo(() => {
     const data: number[] = series.data ?? [];
     if (!periods || periods.length === 0 || data.length === 0) return null;
 
+    // Find first index where data is not zero (matching _growth_rate logic)
     let firstIdx = -1;
-    let lastIdx = -1;
     for (let i = 0; i < data.length; i++) {
-      if (data[i] != null && firstIdx === -1) firstIdx = i;
-      if (data[i] != null) lastIdx = i;
+      if (data[i] > 0) {
+        firstIdx = i;
+        break;
+      }
     }
-    if (firstIdx === -1 || firstIdx === lastIdx) return null;
+    
+    // Last index is always the last value in the sequence (can be zero)
+    const lastIdx = data.length - 1;
+    
+    // If no non-zero value found, show insufficient data
+    if (firstIdx === -1) {
+      return { insufficientData: true };
+    }
+
+    // Special case: first non-zero appears only at the last position
+    const isEmergingAtLastPeriod = (firstIdx === lastIdx);
+    const firstCount = data[firstIdx];
+    const lastCount = data[lastIdx];
 
     return {
+      insufficientData: false,
+      isEmergingAtLastPeriod: isEmergingAtLastPeriod,
       firstPeriod: periods[firstIdx]?.label ?? `Period ${firstIdx + 1}`,
       lastPeriod: periods[lastIdx]?.label ?? `Period ${lastIdx + 1}`,
-      firstCount: data[firstIdx],
-      lastCount: data[lastIdx],
+      firstCount: firstCount,
+      lastCount: lastCount,
     };
   }, [series, periods]);
-
-  if (!explanation) return null;
-
-  const { firstPeriod, lastPeriod, firstCount, lastCount } = explanation;
 
   return (
     <div
@@ -262,33 +253,56 @@ function GrowthRateTooltip({ series, periods }: { series: any; periods: PeriodOp
           className="absolute z-[100] bottom-full mb-3 left-1/2 -translate-x-1/2 w-72 bg-gray-900 text-white rounded-xl shadow-2xl p-4 text-xs animate-in fade-in zoom-in duration-200"
           role="tooltip"
         >
-          {/* Arrow */}
-          <div 
+          <div
             className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0"
             style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid #111827' }}
           />
 
           <p className="font-bold text-violet-300 mb-2 border-b border-gray-700 pb-1 text-[11px] uppercase tracking-wider">
-      ❋ How this was calculated
+            How growth rate is calculated
           </p>
-          <div className="space-y-2 text-gray-200 leading-relaxed">
-            <p>
-              In <span className="font-semibold text-white">{firstPeriod}</span>, the project count was <span className="text-violet-400 font-bold text-sm">{firstCount}</span>.
-            </p>
-            <p>
-              In <span className="font-semibold text-white">{lastPeriod}</span>, it changed to <span className="text-violet-400 font-bold text-sm">{lastCount}</span>.
-            </p>
-            <p className="pt-1 text-[10px] text-gray-500 italic border-t border-gray-800 mt-1">
-              * Rate is based on the change between the first and last available data points.
-            </p>
-          </div>
+          
+          {explanation?.insufficientData ? (
+            <div className="space-y-2 text-gray-200 leading-relaxed">
+              <p className="text-yellow-300">
+                No data available to calculate growth rate.
+              </p>
+              <p className="text-[10px] text-gray-500 italic">
+                Need at least one non-zero data point.
+              </p>
+            </div>
+          ) : explanation?.isEmergingAtLastPeriod ? (
+            <div className="space-y-2 text-gray-200 leading-relaxed">
+              <p>
+                This category first appeared in <span className="font-semibold text-white">{explanation?.firstPeriod}</span>.
+              </p>
+              <p>
+                It had <span className="text-emerald-400 font-bold text-sm">{explanation?.firstCount}</span> project(s) in its first appearance.
+              </p>
+              <p className="pt-1 text-emerald-400 font-medium">
+                Growth rate = +100% (emerged from zero)
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 text-gray-200 leading-relaxed">
+              <p>
+                First non-zero data: <span className="font-semibold text-white">{explanation?.firstPeriod}</span> with <span className="text-emerald-400 font-bold text-sm">{explanation?.firstCount}</span> project(s)
+              </p>
+              <p>
+                Last period data: <span className="font-semibold text-white">{explanation?.lastPeriod}</span> with <span className="text-emerald-400 font-bold text-sm">{explanation?.lastCount}</span> project(s)
+              </p>
+              <p className="pt-1 text-[10px] text-gray-500 italic border-t border-gray-800 mt-1">
+                Growth rate = (({explanation?.lastCount} - {explanation?.firstCount}) / {explanation?.firstCount}) × 100% = {series.growth_rate > 0 ? '+' : ''}{series.growth_rate}%
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
-// ── Main component ─────────────────────────────────────────────────────────────
 
+// Main component
 export default function TrendsPage() {
   // Filter state
   const [filterOpts,  setFilterOpts]  = useState<FilterOptions | null>(null);
@@ -310,9 +324,7 @@ export default function TrendsPage() {
   const [loading,     setLoading]     = useState(true);
   const [activeTab,   setActiveTab]   = useState('timeline');
 
-  // ── Build query string from active filters ─────────────────────────────────
-  // Semester codes (10, 20, 30) are sent as-is to the API; display labels are UI-only.
-
+  // Build query string from active filters
   const filterQuery = useMemo(() => {
     const params = new URLSearchParams();
     if (activeFilters.years.length)        params.set('years',        activeFilters.years.join(','));
@@ -323,16 +335,14 @@ export default function TrendsPage() {
     return params.toString() ? `?${params}` : '';
   }, [activeFilters]);
 
-  // ── Load static filter options (once) ─────────────────────────────────────
-
+  // Load static filter options (once)
   useEffect(() => {
     api.get('/trends/filters').then(r => {
       setFilterOpts(r.data);
     }).catch(() => {});
   }, []);
 
-  // ── Reload all data when filters or dimension selectors change ─────────────
-
+  // Reload all data when filters or dimension selectors change
   const loadAll = useCallback(() => {
     setLoading(true);
 
@@ -355,8 +365,7 @@ export default function TrendsPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // ── Filter togglers ────────────────────────────────────────────────────────
-
+  // Filter togglers
   const toggle = (dim: keyof ActiveFilters, val: string) =>
     setActiveFilters(prev => ({
       ...prev,
@@ -366,8 +375,7 @@ export default function TrendsPage() {
   const clearAll = () => setActiveFilters({ years: [], semesters: [], interests: [], applications: [], rdia: [] });
   const hasFilters = Object.values(activeFilters).some(v => v.length > 0);
 
-  // ── Line chart series → Recharts format ───────────────────────────────────
-
+  // Line chart series -> Recharts format
   const lineChartData = useMemo(() => {
     if (!timelineData?.periods) return [];
     return timelineData.periods.map((p: PeriodOpt, i: number) => {
@@ -377,11 +385,10 @@ export default function TrendsPage() {
     });
   }, [timelineData]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
+  // Render
   return (
     <div className="p-6 max-w-screen-xl mx-auto">
-      {/* ── Page header ── */}
+      {/* Page header */}
       <div className="mb-6 flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -394,7 +401,7 @@ export default function TrendsPage() {
         </div>
       </div>
 
-      {/* ── Filter panel ── */}
+      {/* Filter panel */}
       {filterOpts && (
         <div className="mb-5 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center gap-3 flex-wrap">
@@ -406,10 +413,6 @@ export default function TrendsPage() {
             <MultiSelect label="Year"        options={filterOpts.years}
               selected={activeFilters.years}        onToggle={v => toggle('years', v)} />
 
-            {/*
-              Semester: options are raw codes (10, 20, 30) passed to the API,
-              but getLabel renders them as "First", "Second", "Third" for the user.
-            */}
             <MultiSelect
               label="Semester"
               options={filterOpts.semesters.map(s => s.code)}
@@ -439,7 +442,7 @@ export default function TrendsPage() {
             </button>
           </div>
 
-          {/* Active filter chips — show human-readable label for semesters */}
+          {/* Active filter chips */}
           {hasFilters && (
             <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
               {Object.entries(activeFilters).flatMap(([dim, vals]) =>
@@ -458,7 +461,7 @@ export default function TrendsPage() {
         </div>
       )}
 
-      {/* ── Summary KPI bar ── */}
+      {/* Summary KPI bar */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="border-violet-100 bg-gradient-to-br from-violet-50 to-purple-50">
@@ -503,7 +506,7 @@ export default function TrendsPage() {
         </div>
       )}
 
-      {/* ── Main chart tabs (order: Timeline, Distribution, Frequency) ── */}
+      {/* Main chart tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mb-6 bg-gray-100">
           <TabsTrigger value="timeline"    className="flex items-center gap-1.5 text-xs">
@@ -517,7 +520,7 @@ export default function TrendsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ──────── TIMELINE TAB ──────── */}
+        {/* TIMELINE TAB */}
         <TabsContent value="timeline">
           <Card>
             <CardHeader className="pb-3">
@@ -558,20 +561,42 @@ export default function TrendsPage() {
                     </LineChart>
                   </ResponsiveContainer>
 
-                  {/* Trend direction badges */}
+                  {/* Growth rate badges with colored background */}
                   {timelineData?.series?.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                      {timelineData.series.map((s: any, i: number) => (
-                        <div key={s.name} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200">
-                          <div className="w-2 h-2 rounded-full" style={{ background: PALETTE[i % PALETTE.length] }} />
-                          <span className="text-xs text-gray-700 max-w-28 truncate">{s.name}</span>
-                          <TrendIcon trend={s.trend} size={12} />
-                          <span className="text-xs font-medium" style={{ color: TREND_COLORS[s.trend as keyof typeof TREND_COLORS] }}>
-                            {s.growth_rate > 0 ? '+' : ''}{s.growth_rate}%
-                          </span>
-                          <GrowthRateTooltip series={s} periods={timelineData.periods ?? []} />
-                        </div>
-                      ))}
+                      {timelineData.series.map((s: any, i: number) => {
+                        // Check if there is valid data for growth calculation
+                        const nonZeroCount = s.data?.filter((val: number) => val > 0).length ?? 0;
+                        const isValidGrowth = nonZeroCount >= 1;
+                        const isEmergingCase = (nonZeroCount === 1 && s.data?.[s.data.length - 1] > 0);
+                        
+                        return (
+                          <div key={s.name} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200">
+                            <div className="w-2 h-2 rounded-full" style={{ background: PALETTE[i % PALETTE.length] }} />
+                            <span className="text-xs text-gray-700 max-w-28 truncate">{s.name}</span>
+                            
+                            {isValidGrowth ? (
+                              <span 
+                                className="text-xs font-medium px-1.5 py-0.5 rounded-full"
+                                style={{ 
+                                  backgroundColor: `${s.growth_rate > 0 ? '#10B981' : (s.growth_rate < 0 ? '#EF4444' : '#6B7280')}20`,
+                                  color: s.growth_rate > 0 ? '#10B981' : (s.growth_rate < 0 ? '#EF4444' : '#6B7280')
+                                }}
+                              >
+                                {s.growth_rate !== 0 && !isEmergingCase && (s.growth_rate > 0 ? '+' : '')}{s.growth_rate}%
+                              </span>
+                            ) : (
+                              <span 
+                                className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500"
+                              >
+                                No Data
+                              </span>
+                            )}
+                            
+                            <GrowthRateTooltip series={s} periods={timelineData.periods ?? []} />
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </>
@@ -580,7 +605,7 @@ export default function TrendsPage() {
           </Card>
         </TabsContent>
 
-        {/* ──────── DISTRIBUTION TAB ──────── */}
+        {/* DISTRIBUTION TAB */}
         <TabsContent value="distribution">
           <div className="grid md:grid-cols-2 gap-5">
             <Card>
@@ -659,7 +684,7 @@ export default function TrendsPage() {
           </div>
         </TabsContent>
 
-        {/* ──────── FREQUENCY TAB ──────── */}
+        {/* FREQUENCY TAB */}
         <TabsContent value="frequency">
           <Card>
             <CardHeader className="pb-3">
@@ -703,8 +728,7 @@ export default function TrendsPage() {
   );
 }
 
-// ── Utility micro-components ──────────────────────────────────────────────────
-
+// Utility micro-components
 function ChartSkeleton({ h = 380 }: { h?: number }) {
   return (
     <div className="animate-pulse" style={{ height: h }}>

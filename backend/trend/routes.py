@@ -96,11 +96,11 @@ def get_frequency():
       top_n      (optional): integer - limit results to top-N (default: all)
     """
     dimension = request.args.get("dimension", "interest").strip()
-    
+
     # Validate dimension is supported
     if dimension not in ("interest", "application", "rdia"):
         return jsonify({"error": f"Unsupported dimension: {dimension}. Must be one of: interest, application, rdia"}), 400
-    
+
     top_n_raw = request.args.get("top_n", "").strip()
     top_n     = int(top_n_raw) if top_n_raw.isdigit() else None
     try:
@@ -121,11 +121,11 @@ def get_timeline():
       top_n     (optional): cap number of tracked categories (default: 8)
     """
     dimension = request.args.get("dimension", "interest").strip()
-    
+
     # Validate dimension is supported
     if dimension not in ("interest", "application", "rdia"):
         return jsonify({"error": f"Unsupported dimension: {dimension}. Must be one of: interest, application, rdia"}), 400
-    
+
     top_n_raw = request.args.get("top_n", "8").strip()
     top_n     = int(top_n_raw) if top_n_raw.isdigit() else 8
     try:
@@ -146,11 +146,11 @@ def get_distribution():
       dimension (required): interest | application | rdia
     """
     dimension = request.args.get("dimension", "interest").strip()
-    
+
     # Validate dimension is supported
     if dimension not in ("interest", "application", "rdia"):
         return jsonify({"error": f"Unsupported dimension: {dimension}. Must be one of: interest, application, rdia"}), 400
-    
+
     try:
         data = engine.get_distribution(dimension, _parse_filters())
         return jsonify({"dimension": dimension, "data": data})
