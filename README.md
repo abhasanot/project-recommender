@@ -16,13 +16,12 @@ The system uses semantic embeddings and AI-powered summarization to deliver expl
 
 ## ※ Mu'een Features
 
-❊ Intelligent project recommendation using semantic similarity
-❊ Group-based recommendation system
-❊ Trend analysis of graduation projects
-❊ AI-generated project summaries
-❊ Advanced filtering and project browsing
-❊ Adjustable recommendation weighting system
-
+❊ Intelligent project recommendation using semantic similarity  
+❊ Group-based recommendation system  
+❊ Trend analysis of graduation projects  
+❊ AI-generated project summaries  
+❊ Advanced filtering and project browsing  
+❊ Adjustable recommendation weighting system  
 
 ## ※ How Mu'een Works
 
