@@ -1,10 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# .gitignore  (additions for Docker workflow)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Local environment file (contains SECRET_KEY — never commit this)
-.env
-
 # Python
 __pycache__/
 *.py[cod]
@@ -15,24 +8,20 @@ dist/
 build/
 *.egg
 
-# Flask session files (local dev)
+# Flask session files and database
 backend/flask_session/
-
-# SQLite database (local dev)
 backend/recommendation.db
 
-# Node / frontend build output
+# Environment files
+.env
+
+# Node / frontend
 frontend/node_modules/
 frontend/dist/
 
-# macOS
+# macOS / IDE
 .DS_Store
 Thumbs.db
-
-# IDE
 .idea/
 .vscode/
 *.swp
-*.py
-*.pth
-/backend

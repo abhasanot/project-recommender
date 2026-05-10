@@ -5,13 +5,11 @@ import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import FacultyDashboard from './components/FacultyDashboard';
 import { Toaster } from './components/ui/sonner';
-import TrendsPage from './components/TrendsPage';
-
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -19,20 +17,19 @@ function AppContent() {
       </div>
     );
   }
-  
-  // Show Welcome Page first, before login
+
   if (showWelcome && !user) {
     return <WelcomePage onGetStarted={() => setShowWelcome(false)} />;
   }
-  
+
   if (!user) {
     return <LoginPage />;
   }
-  
+
   if (user.user_type === 'faculty') {
     return <FacultyDashboard facultyName={user.name} onLogout={logout} />;
   }
-  
+
   return <Dashboard studentName={user.name} onLogout={logout} />;
 }
 

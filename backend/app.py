@@ -9,12 +9,6 @@ Enforced system flow:
 
 Recommendations are NEVER generated unless ALL three conditions are met.
 
-Docker changes vs. original:
-  • CORS_ORIGINS env-var replaces the hard-coded localhost:3000 list so
-    nginx-proxied requests (Origin: http://localhost) are accepted.
-  • SESSION_FILE_DIR is read from the SESSION_DIR env-var so Flask-Session
-    stores files in the persistent Docker volume (/data/flask_session).
-  • GET /api/health added for Docker healthcheck / liveness probe.
 """
 
 from flask import Flask, request, jsonify, session
@@ -47,8 +41,7 @@ app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
 
-# SESSION_DIR env-var points to the Docker volume; fall back to local dir for
-# plain (non-Docker) development.
+# SESSION_FILE_DIR falls back to a local directory for development.
 _session_dir = os.environ.get(
     "SESSION_DIR",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "flask_session"),
@@ -56,9 +49,7 @@ _session_dir = os.environ.get(
 os.makedirs(_session_dir, exist_ok=True)
 app.config["SESSION_FILE_DIR"] = _session_dir
 
-# CORS_ORIGINS env-var lets docker-compose inject the correct origin list.
-# In Docker: nginx proxies /api → backend, browser Origin is http://localhost.
-# In dev:    Vite proxies /api → Flask, browser Origin is http://localhost:3000.
+# CORS_ORIGINS can be set via environment variable for production deployments.
 _raw_origins = os.environ.get(
     "CORS_ORIGINS",
     "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173",
@@ -193,7 +184,7 @@ def _generate_recommendations(group_id: str):
 
 
 # =============================================================================
-# HEALTH CHECK  (used by Docker healthcheck and nginx upstream checks)
+# HEALTH CHECK
 # =============================================================================
 
 @app.route("/api/health")
@@ -201,7 +192,6 @@ def health():
     """
     Lightweight liveness probe.
     Returns 200 once Flask (and the SBERT model) has fully started.
-    Docker compose waits for this before starting the frontend container.
     """
     return jsonify({"status": "ok", "service": "mueen-backend"}), 200
 
@@ -482,8 +472,7 @@ def finalize_group():
     recs = _generate_recommendations(group["group_id"])
     if recs:
         # attach summary to recs before saving so it is stored with them
-        top5    = recs.get("recommended_projects", [])[:5]
-        profile = recs.get("group_profile", {})
+        top5 = recs.get("recommended_projects", [])[:5]
         recs["summary"] = generate_summary(top5)
         db.save_group_recommendations(group["group_id"], recs)
         return jsonify({"message": "Group finalized and recommendations generated",
@@ -589,9 +578,8 @@ def update_group_weights():
     if group["is_finalized"]:
         recs = _generate_recommendations(group["group_id"])
         if recs:
-            top5    = recs.get("recommended_projects", [])[:5]
-            profile = recs.get("group_profile", {})
-            recs["summary"] = generate_summary(top5, profile)
+            top5 = recs.get("recommended_projects", [])[:5]
+            recs["summary"] = generate_summary(top5)
             db.save_group_recommendations(group["group_id"], recs)
 
     return jsonify({
@@ -629,8 +617,7 @@ def get_recommendations():
     if not recs:
         recs = _generate_recommendations(group["group_id"])
         if recs:
-            top5    = recs.get("recommended_projects", [])[:5]
-            profile = recs.get("group_profile", {})
+            top5 = recs.get("recommended_projects", [])[:5]
             recs["summary"] = generate_summary(top5)
             db.save_group_recommendations(group["group_id"], recs)
 

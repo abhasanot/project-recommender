@@ -2,15 +2,8 @@
 """
 Database layer for Mu'een.
 
-Docker change vs. original:
-  DB_PATH is now read from the DB_PATH environment variable.
-  In Docker, docker-compose sets:
-      DB_PATH=/data/recommendation.db
-  where /data is a named Docker volume, so the database survives
-  `docker compose down / up` cycles.
-
-  In plain development (no env-var set), behaviour is unchanged:
-  the DB lives next to this file inside backend/.
+DB_PATH can be overridden via the DB_PATH environment variable.
+If not set, the database is created next to this file inside backend/.
 """
 
 import sqlite3
@@ -18,13 +11,13 @@ import json
 from typing import Dict, List, Optional
 import os
 
-# DB_PATH: prefer env-var (Docker) → fall back to sibling file (local dev)
+# DB_PATH: prefer env-var → fall back to default location
 DB_PATH = os.environ.get(
     "DB_PATH",
     os.path.join(os.path.dirname(__file__), "recommendation.db"),
 )
 
-# Ensure the parent directory exists (needed when using a Docker volume path)
+# Ensure the parent directory exists
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
