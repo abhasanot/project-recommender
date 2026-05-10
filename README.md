@@ -31,6 +31,23 @@ The system uses semantic embeddings and AI-powered summarization to deliver expl
 4. Recommendation engine ranks projects
 5. AI generates explanations and summaries
 
+## ※ System Screenshots
+
+### Similar Projects 
+<p align="center">
+  <img src="images/SimilarProjects.png" width="700"/>
+</p>
+
+### Trend Analysis
+<p align="center">
+  <img src="images/TrendAnalysis.png" width="700"/>
+</p>
+
+### Browse Projects
+<p align="center">
+  <img src="images/BrowseProjects.png" width="700"/>
+</p>
+
    
 ## Project Structure
 
@@ -106,3 +123,27 @@ python app.py
 - Embeddings are pre-computed and included in the `embeddings/` directory. If you add new projects, run `python backend/phase2_embed.py` to regenerate them.
 - The database (`backend/recommendation.db`) is created automatically on first run.
 - An OpenAI API key is required for the project summary feature. Set it as the `OPENAI_API_KEY` environment variable before starting the backend.
+
+
+## Team
+
+<p align="center">
+
+**Mu'een Project Team**
+
+| Name | ID |
+|------|----|
+| Abeer Hasan Othman | 443019197 |
+| Dhekra Adel Dabwan | 443520332 |
+| Ohood Mohammed Al-Magedi | 443520331 |
+| Shahad Abdullah Baelaian | 443019212 |
+
+</p>
+
+---
+
+## Supervisor
+
+<p align="center">
+Dr. Waad Alhoshan, PhD
+</p>
