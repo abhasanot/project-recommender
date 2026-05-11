@@ -580,10 +580,17 @@ export default function ProfilePage() {
                 RDIA National Priority
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                    <a
+                      href="https://rdia.gov.sa" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex cursor-pointer"
+                      onClick={(e) => e.stopPropagation()} >
+                      <Info className="w-4 h-4 text-gray-400 hover:text-amber-500 transition-colors" />
+                    </a>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs text-xs">
-                    RDIA priorities align your project with Saudi Arabia's Vision 2030 research agenda.
+                    Learn more about RDIA priorities on the official website 
                   </TooltipContent>
                 </Tooltip>
                 {rdia && <CheckCircle className="w-4 h-4 text-green-500" />}
