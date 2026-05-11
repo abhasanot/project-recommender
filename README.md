@@ -36,7 +36,9 @@ The system uses semantic embeddings and AI-powered summarization to deliver expl
 The recommendation logic powering Mu'een is documented in detail in a dedicated repository:  
 [GP-Recommender](https://github.com/Shahad0100/GP-Recommender.git)
  
-This covers the full technical breakdown of the embedding strategy, hybrid retrieval pipeline, group profile construction, and domain scoring logic.
+This covers the full technical breakdown of the embedding strategy,
+hybrid retrieval pipeline, group profile construction, and domain
+scoring logic that forms the basis of this system.
 
 ## ※ System Screenshots
 
