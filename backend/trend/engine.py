@@ -68,12 +68,10 @@ def _parse_id(project_id: str) -> Dict[str, Any]:
         return {}
     year_short   = m.group(2)          # e.g. "42"
     semester_raw = m.group(3)          # e.g. "20"
-    full_year    = f"1{year_short}" if len(year_short) == 2 else year_short
     return {
         "group_code": m.group(1),
         "year_short":      year_short,          # "42"
-        "year_full":       full_year,            # "142" -> corrected below
-        "academic_year":   int(f"1{year_short}") if len(year_short) == 2 else int(year_short),
+        "academic_year":   int(f"14{year_short}") if len(year_short) == 2 else int(year_short),
         "semester_code":   semester_raw,
         "semester_label":  SEMESTER_LABELS.get(semester_raw, f"Semester {semester_raw}"),
     }
@@ -170,11 +168,6 @@ def _count_field(projects: List[dict], field: str) -> Counter:
         for v in p.get(field, []):
             c[v] += 1
     return c
-
-
-def _count_scalar(projects: List[dict], field: str) -> Counter:
-    """Count occurrences of a scalar (string) field."""
-    return Counter(p.get(field, "Unknown") for p in projects)
 
 
 def _growth_rate(history: List[int]) -> float:
@@ -286,15 +279,10 @@ class TrendEngine:
 
         return {
             "total_projects":    len(proj),
-            "total_filtered":    len(proj),
-            "total_all":         len(all_p),
             "years_covered":     years_seen,
-            "unique_interests":  len(interest_c),
-            "unique_applications": len(app_c),
             "top_interest":      {"name": top_interest[0], "count": top_interest[1]},
             "top_application":   {"name": top_app[0],      "count": top_app[1]},
             "top_rdia":          {"name": top_rdia[0],     "count": top_rdia[1]},
-            "projects_per_year": dict(year_counts),
         }
 
     # -- 3. Frequency / bar-chart data ---------------------------------------
