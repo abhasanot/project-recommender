@@ -42,7 +42,7 @@ scoring logic that forms the basis of this system.
 
 ## ※ System Screenshots
 
-### Similar Projects 
+### Recommended Projects 
 <p align="center">
   <img src="images/SimilarProjects.png" width="700"/>
 </p>
