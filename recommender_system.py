@@ -29,7 +29,7 @@ import sys
 import datetime
 from pathlib import Path
 
-from embedding_engine import EmbeddingEngine
+from backend.embedding_engine import EmbeddingEngine
 from recommenders.project_recommender     import ProjectRecommender
 from recommenders.interest_recommender    import InterestRecommender
 from recommenders.application_recommender import ApplicationRecommender
