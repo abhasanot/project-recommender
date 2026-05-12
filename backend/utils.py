@@ -24,23 +24,13 @@ GRADE_WEIGHTS = {
 }
 
 
-def grade_to_weight(grade) -> float:
+def grade_to_weight(grade: str) -> float:
     """
-    Convert letter grade or numeric GPA grade to embedding weight.
-    FIX: handles numeric float/int grades (e.g. 4.5) without crashing.
+    Convert letter grade to embedding weight.
+    Expects string like 'A', 'B+', etc.
     """
-    if isinstance(grade, (int, float)):
-        if grade >= 4.5:   grade_str = "A+"
-        elif grade >= 4.0: grade_str = "A"
-        elif grade >= 3.5: grade_str = "B+"
-        elif grade >= 3.0: grade_str = "B"
-        elif grade >= 2.5: grade_str = "C+"
-        elif grade >= 2.0: grade_str = "C"
-        elif grade >= 1.5: grade_str = "D+"
-        else:              grade_str = "D"
-    else:
-        grade_str = str(grade).strip().upper()
-    return GRADE_WEIGHTS.get(grade_str, 0.50)
+    grade_str = str(grade).strip().upper()
+    return GRADE_WEIGHTS.get(grade_str, 0.50)  # Default to 0.5 for unrecognized grades
 
 
 def load_plos_from_courses(courses_path: str) -> Dict[str, str]:

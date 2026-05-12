@@ -69,8 +69,8 @@ class RecommenderSystem:
             {
               "student_id": "S001",
               "courses": [
-                {"course_code": "CS1465", "grade": 4.5},
-                {"course_code": "CS1464", "grade": 3.0}
+                {"course_code": "CS1465", "grade": "A+"},
+                {"course_code": "CS1464", "grade": "B"}
               ],
               "interests":    ["Computer Vision", "AI / ML"],   // 1-3 items
               "applications": ["Healthcare / Medical"],          // 1-3 items
