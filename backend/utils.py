@@ -237,15 +237,3 @@ def save_vector(vec: np.ndarray, path: str):
 
 def load_vector(path: str) -> np.ndarray:
     return np.load(path)
-
-
-def encode_late_fusion_engine(model, segments: list) -> np.ndarray:
-    if not segments:
-        raise ValueError("No segments provided.")
-    vectors = model.encode(
-        segments,
-        normalize_embeddings=True,
-        batch_size=32,
-        show_progress_bar=False,
-    )
-    return normalize(average_vectors(list(vectors)))
