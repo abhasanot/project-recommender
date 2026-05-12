@@ -23,7 +23,6 @@ from utils import (
     load_acm_taxonomy,
     get_course_texts,
     get_project_segments,
-    encode_late_fusion_engine,
     grade_to_weight,
     weighted_average,
     average_vectors,
