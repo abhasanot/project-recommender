@@ -62,7 +62,7 @@ EMBEDDINGS_DIR      = os.path.join(PROJECT_ROOT, "embeddings")
 COURSES_EMB_DIR     = os.path.join(EMBEDDINGS_DIR, "courses")
 PROJECTS_EMB_DIR    = os.path.join(EMBEDDINGS_DIR, "projects")
 # SBERT model — all-MiniLM-L6-v2 is fast (384-dim), good quality
-# Upgrade to all-mpnet-base-v2 (768-dim) for better accuracy at cost of speed
+
 SBERT_MODEL = "all-MiniLM-L6-v2"
 
 
